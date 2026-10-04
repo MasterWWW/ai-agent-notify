@@ -37,6 +37,24 @@ Claude Code ─Hook─┘        │ HTTP POST /api/events（Bearer Token）
 | 功能 | `features/` | 通知（飞书渠道/渲染/查询）、历史落盘、配置 | 相互不依赖，只通过 Pipeline 消费事件 |
 | 基础 | `core/` | 鉴权、日志、token/状态目录、版本 | 谁都能用，不依赖上层 |
 
+## 核心机制：权限请求交互（飞书卡片远程控制）
+
+```
+Agent Hook --wait ──POST──▶ /api/permission-requests ──▶ PermissionService
+                                                          │ 发交互卡片
+                                                          ▼
+                                                     飞书卡片【允许/拒绝】
+                                                          │ card.action.trigger（长连接）
+                                                          ▼
+                                                   PermissionService 校验本人 → resolve
+                                                          │ 唤醒长轮询
+                                                          ▼
+                                               Hook 拿到决定 → stdout JSON → Agent 继续/拦截
+```
+
+- 请求存内存（TTL 10min），Hook 超时/失败一律静默 exit 0 → Agent 回退终端审批流。
+- 只有绑定的 open_id 能决定；文本兜底「允许/拒绝 <id>」走消息通道。
+
 ## 核心机制：Pipeline
 
 ```
@@ -57,10 +75,11 @@ Pipeline.handle(event)
 server/src/
 ├── index.ts                命令分发（≈90 行）
 ├── commands/               server / config / feishu / hook / status / test
-├── domain/                 types（事件模型）、normalize（校验）、pipeline（编排）、log-handler
+├── domain/                 types（事件模型）、normalize（校验）、pipeline（编排）、permission（权限请求模型+Store）、log-handler
 ├── transport/              server（HTTP+WS）、ws（Hub）、hooks（Hook 解析）、client、mdns
 ├── features/               notifier（通知编排）、history（落盘）、config（配置读写）
-│   └── feishu/             channel（官方 Channel SDK 发送）、connection（长连接接收）、bot（命令/自动绑定）、channels（发送编排）、render（文本）、queries（open_id/群列表）、api（查询用 token）
+│   ├── permission.ts       权限请求交互编排（发卡片 / 决定 / 文本兜底）
+│   └── feishu/             channel（官方 Channel SDK 发送）、connection（长连接接收+卡片回调）、bot（命令/自动绑定/文本兜底）、card（交互卡片）、channels（发送编排）、render（文本）、queries（open_id/群列表）、api（查询用 token）
 └── core/                   auth、logger、state（token/状态目录）、version
 
 macos/

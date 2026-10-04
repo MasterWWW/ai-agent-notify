@@ -1,6 +1,7 @@
 import {
   createLarkChannel,
   LoggerLevel,
+  type CardActionEvent,
   type LarkChannel,
   type NormalizedMessage,
 } from "@larksuiteoapi/node-sdk";
@@ -9,6 +10,8 @@ import { error, log } from "../../core/logger.js";
 export interface FeishuBotCallbacks {
   /** 收到发给机器人的消息；返回要回复的文本，返回 null 表示不回复。 */
   onMessage: (msg: NormalizedMessage) => string | null | Promise<string | null>;
+  /** 收到交互卡片按钮点击（card.action.trigger，走长连接）。 */
+  onCardAction?: (evt: CardActionEvent) => void | Promise<void>;
   onState?: (state: "connected" | "reconnecting") => void;
   onReady?: (channel: LarkChannel) => void;
 }
@@ -45,6 +48,11 @@ export async function startFeishuBot(
       error("feishu bot reply failed", err);
     }
   });
+  if (cb.onCardAction) {
+    channel.on("cardAction", (evt) => {
+      Promise.resolve(cb.onCardAction!(evt)).catch((err) => error("feishu card action failed", err));
+    });
+  }
   channel.on("error", (err) => error("feishu long connection error", err));
   channel.on("reconnecting", () => {
     cb.onState?.("reconnecting");

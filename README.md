@@ -30,6 +30,7 @@ open /Applications/"AI Task Notify.app"
   - `ping` → `pong`
   - `help` / `status` / `current` / `recent`
   - 私聊机器人的第一条消息会自动绑定为通知目标（不用再查手机号 / 复制 Chat ID）。
+- **交互卡片远程控制（Phase A 已上线）**：Codex / Claude 需要权限时，飞书收到带【允许/拒绝】按钮的交互卡片，点击即决定；不点则超时回退终端审批流。见 [docs/feishu-card-control.md](docs/feishu-card-control.md)。
 
 **发到哪，二选一（都不用查手机号）：**
 - ✅ **open_id（默认）**：之前已通过手机号查好并保存，直接发到你和机器人的单聊，无需任何额外操作。

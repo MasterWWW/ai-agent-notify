@@ -12,6 +12,9 @@ export interface BotInfo {
   botName?: string;
 }
 
+/** 文本兜底决定回调：返回给用户的提示文本。 */
+export type TextDecisionHandler = (rid: string, act: "allow" | "deny", senderOpenId: string) => Promise<string> | string;
+
 const ICON: Record<AgentEvent["status"], string> = { success: "✅", waiting: "🟡", info: "💬" };
 
 const HELP = `🤖 AI Task Notify 机器人
@@ -25,14 +28,18 @@ recent      查看最近 10 条事件
 
 直接发消息即可，不需要 @。`;
 
-/** 清洗消息文本：去掉 @提及 / <at> 标签，取第一个词作为命令。 */
-export function parseCommand(raw: string): string {
-  const cleaned = raw
+/** 清洗消息文本：去掉 @提及 / <at> 标签。 */
+export function cleanText(raw: string): string {
+  return raw
     .replace(/<at[^>]*>.*?<\/at>/g, " ")
     .replace(/@_user_\d+/g, " ")
     .replace(/@\S+/g, " ")
-    .trim()
-    .toLowerCase();
+    .trim();
+}
+
+/** 清洗消息文本：去掉 @提及 / <at> 标签，取第一个词作为命令。 */
+export function parseCommand(raw: string): string {
+  const cleaned = cleanText(raw).toLowerCase();
   return cleaned.split(/\s+/)[0] ?? "";
 }
 
@@ -85,7 +92,7 @@ function buildRecent(): string {
  */
 export async function handleBotMessage(
   msg: NormalizedMessage,
-  deps: { botInfo: () => BotInfo }
+  deps: { botInfo: () => BotInfo; onTextDecision?: TextDecisionHandler }
 ): Promise<string | null> {
   // 只接管私聊；群聊必须 @机器人
   if (msg.chatType !== "p2p" && !msg.mentionedBot) return null;
@@ -105,6 +112,15 @@ export async function handleBotMessage(
       }
     } catch {
       // 绑定失败不影响回复
+    }
+  }
+
+  // 文本兜底：允许 <id> / 拒绝 <id>（卡片回调异常时可用）
+  if (deps.onTextDecision) {
+    const m = /^(允许|拒绝)\s+(pr_[A-Za-z0-9]+)$/.exec(cleanText(msg.content));
+    if (m) {
+      const act = m[1] === "允许" ? "allow" : "deny";
+      return deps.onTextDecision(m[2], act, msg.senderId);
     }
   }
 

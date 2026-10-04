@@ -1,8 +1,8 @@
 # 计划书：Codex / Claude 交互通过飞书交互卡片远程回复
 
-版本：v0.1（可行性方案）
-日期：2026-10-04
-状态：待评审（已通过技术可行性验证）
+版本：v0.2（Phase A 已实施）
+日期：2026-10-05
+状态：Phase A（服务端 + 卡片闭环）已实现并通过验证；Phase B/C 待应用 Agent 配置
 
 ---
 
@@ -24,6 +24,20 @@
 
 > 关键点：两侧 Hook 都支持「阻塞等待 + 返回 allow/deny」；飞书卡片按钮回调
 > （`card.action.trigger`）走我们已经建立的长连接（WebSocket），不需要公网 URL / 域名 / HTTPS。
+
+---
+
+## 〇、实施进度
+
+- ✅ **Phase A（服务端 + 卡片闭环）已完成并验证**：
+  - `domain/permission.ts`：PermissionRequest 模型 + 内存 Store（TTL 10min + 长轮询唤醒）
+  - `transport/server.ts`：`POST /api/permission-requests` + `GET /api/permission-requests/:id/wait`（Bearer 鉴权）
+  - `features/feishu/card.ts`：交互卡片（允许/拒绝按钮，value 带 rid+act）
+  - `features/permission.ts`：PermissionService（发卡片 / card.action.trigger 决定 / 文本兜底「允许/拒绝 <id>」）
+  - `commands/hook.ts`：`hook codex-permission --wait` / `claude-permission --wait` 阻断式等待
+  - 验证结果：T1 超时、T2 本人允许→allowed、T3 非本人忽略、T4 文本拒绝、H1/H2 Hook 全链路 allow/deny JSON、H3 Server 不可达静默兜底 —— **全部 PASS**
+- ⏳ **Phase B/C**：Hook 代码已就绪，待把 Agent 配置切换为 `--wait` 模式（见 §5.5 / §十）
+- ⏳ **Phase D**：安全命令白名单、卡片状态化打磨
 
 ---
 

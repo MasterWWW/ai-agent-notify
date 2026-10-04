@@ -5,6 +5,7 @@ import { bearerToken, isValidToken } from "../core/auth.js";
 import { WsHub } from "./ws.js";
 import { error, log } from "../core/logger.js";
 import { normalizeEvent, type IncomingEvent } from "../domain/normalize.js";
+import type { PermissionApi } from "../domain/permission.js";
 import { Pipeline, type EventHandler } from "../domain/pipeline.js";
 import { getLocalHostname, getLanIps, publishBonjourService, stopBonjour } from "./mdns.js";
 
@@ -48,7 +49,7 @@ function json(res: ServerResponse, code: number, body: unknown): void {
  * Start the HTTP + WebSocket server. Transport only: authenticate, normalize,
  * hand the event to the Pipeline, respond. No business logic lives here.
  */
-export function startApp(opts: AppOptions, handlers: HandlerFactory): Promise<RunningApp> {
+export function startApp(opts: AppOptions, handlers: HandlerFactory, permissions?: PermissionApi): Promise<RunningApp> {
   return new Promise((resolve, reject) => {
     const server = createServer((req, res) => {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -83,6 +84,59 @@ export function startApp(opts: AppOptions, handlers: HandlerFactory): Promise<Ru
             error("event rejected", err);
             json(res, 400, { success: false, error: err instanceof Error ? err.message : "invalid event" });
           });
+        return;
+      }
+
+      if (permissions && req.method === "POST" && path === "/api/permission-requests") {
+        const token = bearerToken(req.headers.authorization);
+        if (!isValidToken(token, opts.token)) {
+          json(res, 401, { success: false, error: "unauthorized" });
+          return;
+        }
+        readBody(req)
+          .then(async (body) => {
+            let parsed: Record<string, unknown>;
+            try {
+              parsed = JSON.parse(body) as Record<string, unknown>;
+            } catch {
+              json(res, 400, { success: false, error: "invalid json" });
+              return;
+            }
+            const agent = parsed.agent;
+            const toolName = typeof parsed.toolName === "string" ? parsed.toolName.trim() : "";
+            if ((agent !== "codex" && agent !== "claude") || !toolName) {
+              json(res, 400, { success: false, error: "invalid permission request" });
+              return;
+            }
+            const command = typeof parsed.command === "string" ? parsed.command.slice(0, 4000) : undefined;
+            const cwd = typeof parsed.cwd === "string" ? parsed.cwd.slice(0, 2000) : undefined;
+            const { requestId } = await permissions.create({ agent, toolName, command, cwd });
+            json(res, 200, { success: true, requestId });
+          })
+          .catch((err) => {
+            error("permission request rejected", err);
+            json(res, 400, { success: false, error: err instanceof Error ? err.message : "invalid request" });
+          });
+        return;
+      }
+
+      if (permissions && req.method === "GET" && path.startsWith("/api/permission-requests/") && path.endsWith("/wait")) {
+        const token = bearerToken(req.headers.authorization);
+        if (!isValidToken(token, opts.token)) {
+          json(res, 401, { success: false, error: "unauthorized" });
+          return;
+        }
+        const id = path.slice("/api/permission-requests/".length, -"/wait".length);
+        if (!id) {
+          json(res, 400, { success: false, error: "missing request id" });
+          return;
+        }
+        const raw = Number(url.searchParams.get("timeout"));
+        const timeoutMs = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1000), 600_000) : 540_000;
+        permissions
+          .wait(id, timeoutMs)
+          .then((r) => json(res, 200, { success: true, status: r.status, decision: r.decision }))
+          .catch((err) => json(res, 500, { success: false, error: String(err) }));
         return;
       }
 
