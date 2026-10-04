@@ -28,7 +28,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
 PLIST
 
 swiftc -parse-as-library -O -o "$APP_DIR/Contents/MacOS/$APP_NAME" \
-  "$ROOT/macos/AITaskNotifyApp.swift" \
+  "$ROOT"/macos/*.swift \
   -framework AppKit -framework SwiftUI
 
 # Bundle a Node runtime so the app works without depending on PATH (self-contained).
