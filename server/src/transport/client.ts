@@ -1,4 +1,4 @@
-import type { EventInput } from "./types.js";
+import type { EventInput } from "../domain/types.js";
 
 export interface ClientOptions {
   baseUrl: string;

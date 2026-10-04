@@ -1,6 +1,6 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { networkInterfaces, hostname as osHostname } from "node:os";
-import { log } from "./logger.js";
+import { log } from "../core/logger.js";
 
 /**
  * Resolve the friendly mDNS hostname advertised by macOS (e.g. weichaoyingdeMac-mini.local).

@@ -1,10 +1,11 @@
 import { WebSocket, WebSocketServer } from "ws";
 import type { IncomingMessage } from "node:http";
-import { log } from "./logger.js";
-import { isValidToken } from "./auth.js";
-import type { AgentEvent, ServerMessage } from "./types.js";
+import { log } from "../core/logger.js";
+import { isValidToken } from "../core/auth.js";
+import type { AgentEvent, ServerMessage } from "../domain/types.js";
 
-export class Hub {
+/** WebSocket hub: manages clients and broadcasts AgentEvents. No business logic. */
+export class WsHub {
   private clients = new Set<WebSocket>();
 
   constructor(private wss: WebSocketServer, private token: string) {

@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import type { Agent, AgentEvent, EventStatus, EventType } from "./types.js";
+import type { Agent, AgentEvent, EventStatus, EventType } from "../domain/types.js";
 
 export type HookKind =
   | "codex-stop"

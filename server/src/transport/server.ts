@@ -1,15 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { WebSocketServer } from "ws";
-import { VERSION } from "./version.js";
-import { bearerToken, isValidToken } from "./auth.js";
-import { Hub } from "./hub.js";
-import { log, error } from "./logger.js";
-import { logEvent, normalizeEvent, type IncomingEvent } from "./events.js";
-import { loadAppConfig, EVENTS_FILE } from "./config.js";
-import { sendFeishu, logFeishuError } from "./feishu.js";
+import { VERSION } from "../core/version.js";
+import { bearerToken, isValidToken } from "../core/auth.js";
+import { WsHub } from "./ws.js";
+import { error, log } from "../core/logger.js";
+import { normalizeEvent, type IncomingEvent } from "../domain/normalize.js";
+import { Pipeline, type EventHandler } from "../domain/pipeline.js";
 import { getLocalHostname, getLanIps, publishBonjourService, stopBonjour } from "./mdns.js";
-import type { AgentEvent } from "./types.js";
-import { appendFileSync, statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 
 export interface AppOptions {
   host: string;
@@ -26,6 +23,12 @@ export interface RunningApp {
   close: () => Promise<void>;
 }
 
+/**
+ * Register the event handlers for the app. The server only knows about the
+ * transport; handlers are supplied by the composition root (commands/server).
+ */
+export type HandlerFactory = (hub: WsHub) => EventHandler[];
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -41,24 +44,12 @@ function json(res: ServerResponse, code: number, body: unknown): void {
   res.end(payload);
 }
 
-/** Append an event to ~/.ai-task-notify/events.jsonl (for the macOS app UI), capping size. */
-function appendEventFile(event: AgentEvent): void {
-  try {
-    const line = JSON.stringify(event) + "\n";
-    if (existsSync(EVENTS_FILE) && statSync(EVENTS_FILE).size > 1_000_000) {
-      const lines = readFileSync(EVENTS_FILE, "utf8").split("\n").filter(Boolean).slice(-100);
-      writeFileSync(EVENTS_FILE, lines.join("\n") + "\n");
-    }
-    appendFileSync(EVENTS_FILE, line);
-  } catch {
-    // non-critical
-  }
-}
-
-export function startApp(opts: AppOptions): Promise<RunningApp> {
+/**
+ * Start the HTTP + WebSocket server. Transport only: authenticate, normalize,
+ * hand the event to the Pipeline, respond. No business logic lives here.
+ */
+export function startApp(opts: AppOptions, handlers: HandlerFactory): Promise<RunningApp> {
   return new Promise((resolve, reject) => {
-    const hubHolder: { hub?: Hub } = {};
-
     const server = createServer((req, res) => {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
       const path = url.pathname;
@@ -83,25 +74,10 @@ export function startApp(opts: AppOptions): Promise<RunningApp> {
               json(res, 400, { success: false, error: "invalid json" });
               return;
             }
-            const event: AgentEvent = normalizeEvent(parsed);
-            const clients = hubHolder.hub?.broadcast(event) ?? 0;
-            logEvent(event, clients);
-            appendEventFile(event);
-            const appCfg = loadAppConfig();
-            if (appCfg.feishuAppId || appCfg.feishuWebhook) {
-              void sendFeishu(
-                {
-                  webhook: appCfg.feishuWebhook,
-                  webhookSecret: appCfg.feishuSecret,
-                  appId: appCfg.feishuAppId,
-                  appSecret: appCfg.feishuAppSecret,
-                  chatId: appCfg.feishuChatId,
-                  openId: appCfg.feishuOpenId,
-                },
-                event
-              ).catch(logFeishuError);
-            }
-            json(res, 200, { success: true, eventId: event.id });
+            const event = normalizeEvent(parsed);
+            pipeline.handle(event).then(() => {
+              json(res, 200, { success: true, eventId: event.id });
+            });
           })
           .catch((err) => {
             error("event rejected", err);
@@ -131,8 +107,9 @@ export function startApp(opts: AppOptions): Promise<RunningApp> {
       });
     });
 
-    const hub = new Hub(wss, opts.token);
-    hubHolder.hub = hub;
+    const hub = new WsHub(wss, opts.token);
+    const pipeline = new Pipeline();
+    for (const h of handlers(hub)) pipeline.register(h);
 
     server.on("error", reject);
 

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { log } from "./logger.js";
+import { log } from "../core/logger.js";
 import type { Agent, AgentEvent, EventStatus, EventType } from "./types.js";
 
 const AGENTS = new Set<Agent>(["codex", "claude"]);
@@ -81,6 +81,7 @@ function defaultStatus(event: string): EventStatus | undefined {
   return undefined;
 }
 
+/** Structured log line for one event (used by the LogHandler). */
 export function logEvent(event: AgentEvent, clientCount: number): void {
   log({
     msg: "event",
