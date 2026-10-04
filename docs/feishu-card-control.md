@@ -1,8 +1,8 @@
 # 计划书：Codex / Claude 交互通过飞书交互卡片远程回复
 
-版本：v0.2（Phase A 已实施）
+版本：v0.3（Phase B 已配置）
 日期：2026-10-05
-状态：Phase A（服务端 + 卡片闭环）已实现并通过验证；Phase B/C 待应用 Agent 配置
+状态：Phase A 已验证上线；Phase B（Claude）配置已应用、链路已验证，待用户真实点击验收；Phase C（Codex）待确认
 
 ---
 
@@ -36,7 +36,11 @@
   - `features/permission.ts`：PermissionService（发卡片 / card.action.trigger 决定 / 文本兜底「允许/拒绝 <id>」）
   - `commands/hook.ts`：`hook codex-permission --wait` / `claude-permission --wait` 阻断式等待
   - 验证结果：T1 超时、T2 本人允许→allowed、T3 非本人忽略、T4 文本拒绝、H1/H2 Hook 全链路 allow/deny JSON、H3 Server 不可达静默兜底 —— **全部 PASS**
-- ⏳ **Phase B/C**：Hook 代码已就绪，待把 Agent 配置切换为 `--wait` 模式（见 §5.5 / §十）
+- ✅ **Phase B（Claude）配置已应用并验证**：
+  - `~/.claude/settings.json` 的 PermissionRequest hook 已切换为 `... hook claude-permission --wait` + `"timeout": 570`（备份：`settings.json.bak.ai-task-notify.20261005`）
+  - 真实 Claude 无头任务触发验证：日志 `permission card sent requestId=... agent=claude tool=Bash`，Claude 进程被阻塞等待决定
+  - ⏳ 待用户在自己终端跑 Claude 触发权限并**点击飞书卡片**完成最终 E2E
+- ⏳ **Phase C（Codex）**：Hook 代码已就绪；需用户确认把 `approval_policy` 改为 `on-request`（影响本机所有 Codex 会话，见 §八.6）
 - ⏳ **Phase D**：安全命令白名单、卡片状态化打磨
 
 ---

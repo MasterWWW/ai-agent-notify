@@ -81,6 +81,7 @@ export class PermissionService implements PermissionApi {
     const channel = getSendChannel(cfg.feishuAppId, cfg.feishuAppSecret);
     const res = await channel.send(receiveId, { card: buildPermissionCard(req, "pending") });
     req.cardMessageId = res.messageId;
+    log({ msg: "permission card sent", requestId: req.id, agent: req.agent, tool: req.toolName });
   }
 
   private async updateCard(messageId: string, req: PermissionRequest, act: PermissionDecision): Promise<void> {
