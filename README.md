@@ -27,10 +27,10 @@ pnpm install
 pnpm build
 
 # 启动 Server（首次会自动生成 Token 并保存到 ~/.ai-task-notify/token）
-pnpm start -- server
+bin/ai-task-notify server
 
 # 或用环境变量指定 Token
-AI_TASK_NOTIFY_TOKEN=xxxx pnpm start -- server
+AI_TASK_NOTIFY_TOKEN=xxxx bin/ai-task-notify server
 ```
 
 启动后看到类似输出：

@@ -136,6 +136,8 @@ function readStdin(): Promise<string> {
 }
 
 export async function main(argv: string[]): Promise<number> {
+  // Tolerate a leading "--" (e.g. `pnpm start -- server`).
+  if (argv[0] === "--") argv = argv.slice(1);
   const [cmd, ...rest] = argv;
   switch (cmd) {
     case "server":
