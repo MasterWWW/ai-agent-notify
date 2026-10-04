@@ -32,15 +32,9 @@ ws://weichaoyingdeMac-mini.local:3210/ws?token=xxxx
 
 Server 启动时自动打印主机名与局域网 IP，并用 `dns-sd` 注册 Bonjour 服务 `_ai-task-notify._tcp`（Android NSD 可自动发现，App 暂缓）。
 
-## 飞书通知
+## 飞书通知（自建应用机器人）
 
-```bash
-# 配置飞书机器人 Webhook（群设置 → 群机器人 → 自定义机器人）
-bin/ai-task-notify config --feishu-webhook "https://open.feishu.cn/open-apis/bot/v2/hook/xxx" [--feishu-secret "密钥"]
-bin/ai-task-notify test   # 发送测试通知
-```
-
-详见 [docs/feishu.md](docs/feishu.md)。
+在 [飞书开放平台](https://open.feishu.cn) 创建**企业自建应用**并开启「机器人」能力，拿到 App ID / App Secret，把机器人拉进你的群，然后在 App 弹窗里填 **App ID / App Secret / 群 Chat ID**（可用「查群列表」自动找群 ID），点「测试发送」验证。详见 [docs/feishu.md](docs/feishu.md)。
 
 ## CLI（可选）
 

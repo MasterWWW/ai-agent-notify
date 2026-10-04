@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { VERSION } from "./version.js";
-import { loadAppConfig, parseServerArgs, readTokenForHook, saveAppConfig } from "./config.js";
+import { loadAppConfig, parseServerArgs, readTokenForHook, saveAppConfig, type AppConfig } from "./config.js";
 import { startApp } from "./app.js";
 import { error, log } from "./logger.js";
 import { getHealth, postEvent, resolveBaseUrl, type ClientOptions } from "./client.js";
 import { mapHookToEvent, type HookKind } from "./hooks.js";
+import { listChats, testFeishu } from "./feishu.js";
 import type { EventInput } from "./types.js";
 
 const HOOK_KINDS: HookKind[] = [
@@ -23,9 +24,12 @@ Usage:
   ai-task-notify server [--host 0.0.0.0] [--port 3210] [--token xxx]
   ai-task-notify status [--base-url http://127.0.0.1:3210]
   ai-task-notify test [--message "..."] [--project "..."] [--token xxx] [--base-url ...]
+  ai-task-notify config --feishu-app-id <id> --feishu-app-secret <secret> --feishu-chat-id <chatId>
   ai-task-notify config --feishu-webhook <url> [--feishu-secret <secret>]
   ai-task-notify config --show
   ai-task-notify config --clear-feishu
+  ai-task-notify feishu test          # 发送测试消息，验证飞书配置
+  ai-task-notify feishu chats         # 列出机器人所在的群（需要 im:chat:readonly 权限）
   ai-task-notify hook <kind> [--token xxx] [--base-url ...]
 
 Hook kinds:
@@ -45,18 +49,34 @@ function mask(s: string | undefined): string {
 async function cmdConfig(argv: string[]): Promise<number> {
   const webhook = argValue(argv, "--feishu-webhook");
   const secret = argValue(argv, "--feishu-secret");
+  const appId = argValue(argv, "--feishu-app-id");
+  const appSecret = argValue(argv, "--feishu-app-secret");
+  const chatId = argValue(argv, "--feishu-chat-id");
   if (argv.includes("--show")) {
     const cfg = loadAppConfig();
+    console.log(`feishuMode=${cfg.feishuAppId ? "自建应用机器人" : cfg.feishuWebhook ? "Webhook 机器人" : "未配置"}`);
+    console.log(`feishuAppId=${cfg.feishuAppId ?? "(未设置)"}`);
+    console.log(`feishuAppSecret=${mask(cfg.feishuAppSecret)}`);
+    console.log(`feishuChatId=${cfg.feishuChatId ?? "(未设置)"}`);
     console.log(`feishuWebhook=${cfg.feishuWebhook ?? "(未设置)"}`);
     console.log(`feishuSecret=${mask(cfg.feishuSecret)}`);
     return 0;
   }
   if (argv.includes("--clear-feishu")) {
     const cfg = loadAppConfig();
-    delete cfg.feishuWebhook;
-    delete cfg.feishuSecret;
+    const keys: (keyof AppConfig)[] = ["feishuWebhook", "feishuSecret", "feishuAppId", "feishuAppSecret", "feishuChatId"];
+    for (const k of keys) delete cfg[k];
     saveAppConfig(cfg);
     console.log("feishu config cleared");
+    return 0;
+  }
+  if (appId || appSecret || chatId) {
+    const cfg = loadAppConfig();
+    if (appId) cfg.feishuAppId = appId;
+    if (appSecret) cfg.feishuAppSecret = appSecret;
+    if (chatId) cfg.feishuChatId = chatId;
+    saveAppConfig(cfg);
+    console.log("feishu app bot config saved");
     return 0;
   }
   if (webhook) {
@@ -68,7 +88,42 @@ async function cmdConfig(argv: string[]): Promise<number> {
     console.log("feishu webhook saved");
     return 0;
   }
-  console.error("usage: ai-task-notify config --feishu-webhook <url> [--feishu-secret <secret>] | --show | --clear-feishu");
+  console.error("usage: ai-task-notify config --feishu-app-id <id> --feishu-app-secret <secret> --feishu-chat-id <chatId> | --feishu-webhook <url> [--feishu-secret <secret>] | --show | --clear-feishu");
+  return 1;
+}
+
+async function cmdFeishu(argv: string[]): Promise<number> {
+  const sub = argv[0];
+  const cfg = loadAppConfig();
+  if (sub === "test") {
+    console.log(await testFeishu({
+      webhook: cfg.feishuWebhook,
+      webhookSecret: cfg.feishuSecret,
+      appId: cfg.feishuAppId,
+      appSecret: cfg.feishuAppSecret,
+      chatId: cfg.feishuChatId,
+    }));
+    return 0;
+  }
+  if (sub === "chats") {
+    if (!cfg.feishuAppId || !cfg.feishuAppSecret) {
+      console.error("需要先配置 --feishu-app-id 和 --feishu-app-secret");
+      return 1;
+    }
+    try {
+      const chats = await listChats(cfg.feishuAppId, cfg.feishuAppSecret);
+      if (chats.length === 0) {
+        console.log("（没有找到机器人所在的群）");
+        return 0;
+      }
+      for (const c of chats) console.log(`${c.chat_id}	${c.name}`);
+      return 0;
+    } catch (err) {
+      console.error(`获取群列表失败：${err instanceof Error ? err.message : String(err)}`);
+      return 1;
+    }
+  }
+  console.error("usage: ai-task-notify feishu test | feishu chats");
   return 1;
 }
 
@@ -186,6 +241,8 @@ export async function main(argv: string[]): Promise<number> {
       return cmdTest(rest);
     case "config":
       return cmdConfig(rest);
+    case "feishu":
+      return cmdFeishu(rest);
     case "hook":
       return cmdHook(rest);
     case "version":

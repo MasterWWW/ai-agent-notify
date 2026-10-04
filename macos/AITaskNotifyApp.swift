@@ -22,11 +22,8 @@ struct AppConfigFile {
         return obj
     }
 
-    static func save(webhook: String, secret: String) {
+    static func save(_ cfg: [String: String]) {
         ensureDir()
-        var cfg = load()
-        cfg["feishuWebhook"] = webhook
-        cfg["feishuSecret"] = secret
         let data = try! JSONSerialization.data(withJSONObject: cfg, options: [.prettyPrinted, .sortedKeys])
         try? data.write(to: configFile, options: .atomic)
     }
@@ -65,6 +62,7 @@ final class ServerController: ObservableObject {
     @Published var feishuConfigured = false
     @Published var recentEvents: [String] = []
     @Published var lastError = ""
+    @Published var feishuResult = ""
 
     private var process: Process?
     private var timer: Timer?
@@ -122,7 +120,7 @@ final class ServerController: ObservableObject {
         hostname = ServerController.localHostname()
         token = AppConfigFile.readToken()
         let cfg = AppConfigFile.load()
-        feishuConfigured = !(cfg["feishuWebhook"] ?? "").isEmpty
+        feishuConfigured = !(cfg["feishuAppId"] ?? "").isEmpty || !(cfg["feishuWebhook"] ?? "").isEmpty
         recentEvents = AppConfigFile.readEvents(limit: 6)
         if !isRunning, !lastError.isEmpty {
             recentEvents.insert("⚠️ \(lastError)", at: 0)
@@ -142,6 +140,40 @@ final class ServerController: ObservableObject {
 
     func openStateDir() {
         NSWorkspace.shared.open(AppConfigFile.stateDir)
+    }
+
+    /// 运行 App 内置 CLI（feishu test / feishu chats），把结果展示到弹窗。
+    func runFeishuCli(_ args: [String]) {
+        feishuResult = "正在执行…"
+        guard let node = resolveNode(),
+              let bundle = Bundle.main.resourceURL?.appendingPathComponent("server/bundle.cjs"),
+              FileManager.default.fileExists(atPath: bundle.path) else {
+            feishuResult = "❌ 找不到 node 或 server/bundle.cjs"
+            return
+        }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: node)
+        p.arguments = [bundle.path] + args
+        var env = ProcessInfo.processInfo.environment
+        env["HOME"] = NSHomeDirectory()
+        p.environment = env
+        let out = Pipe()
+        let err = Pipe()
+        p.standardOutput = out
+        p.standardError = err
+        p.terminationHandler = { _ in
+            let o = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let e = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let combined = (o + e).trimmingCharacters(in: .whitespacesAndNewlines)
+            DispatchQueue.main.async {
+                self.feishuResult = combined.isEmpty ? "（无输出）" : combined
+            }
+        }
+        do {
+            try p.run()
+        } catch {
+            feishuResult = "❌ \(error.localizedDescription)"
+        }
     }
 
     private func startTimer() {
@@ -200,8 +232,12 @@ final class ServerController: ObservableObject {
 
 struct AppMenuView: View {
     @ObservedObject var controller: ServerController
-    @State private var webhook: String = ""
-    @State private var secret: String = ""
+    @State private var mode = "app"
+    @State private var appId = ""
+    @State private var appSecret = ""
+    @State private var chatId = ""
+    @State private var webhook = ""
+    @State private var webhookSecret = ""
     @State private var saved = false
 
     var body: some View {
@@ -230,11 +266,26 @@ struct AppMenuView: View {
             Divider()
 
             Group {
-                Text("飞书机器人通知").font(.headline)
-                TextField("Webhook 地址", text: $webhook)
-                    .textFieldStyle(.roundedBorder)
-                SecureField("安全密钥（可选）", text: $secret)
-                    .textFieldStyle(.roundedBorder)
+                Picker("接入方式", selection: $mode) {
+                    Text("自建应用机器人").tag("app")
+                    Text("Webhook 机器人").tag("webhook")
+                }
+                .pickerStyle(.segmented)
+
+                if mode == "app" {
+                    TextField("App ID（cli_xxx）", text: $appId)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("App Secret", text: $appSecret)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("群 Chat ID（oc_xxx）", text: $chatId)
+                        .textFieldStyle(.roundedBorder)
+                } else {
+                    TextField("Webhook 地址", text: $webhook)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("安全密钥（可选）", text: $webhookSecret)
+                        .textFieldStyle(.roundedBorder)
+                }
+
                 HStack(spacing: 8) {
                     if saved {
                         Text("已保存 ✓").font(.caption).foregroundColor(.green)
@@ -244,8 +295,19 @@ struct AppMenuView: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
-                    Button("清除") { clearFeishu() }
+                    if mode == "app" {
+                        Button("查群列表") { controller.runFeishuCli(["feishu", "chats"]) }
+                    }
+                    Button("测试发送") { controller.runFeishuCli(["feishu", "test"]) }
                     Button("保存") { saveFeishu() }
+                }
+
+                if !controller.feishuResult.isEmpty {
+                    Text(controller.feishuResult)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -268,27 +330,28 @@ struct AppMenuView: View {
             }
         }
         .padding(14)
-        .frame(width: 360)
+        .frame(width: 380)
         .onAppear {
             let cfg = AppConfigFile.load()
+            if !(cfg["feishuAppId"] ?? "").isEmpty { mode = "app" }
+            else if !(cfg["feishuWebhook"] ?? "").isEmpty { mode = "webhook" }
+            appId = cfg["feishuAppId"] ?? ""
+            appSecret = cfg["feishuAppSecret"] ?? ""
+            chatId = cfg["feishuChatId"] ?? ""
             webhook = cfg["feishuWebhook"] ?? ""
-            secret = cfg["feishuSecret"] ?? ""
+            webhookSecret = cfg["feishuSecret"] ?? ""
             controller.refresh()
         }
     }
 
     private func saveFeishu() {
-        AppConfigFile.save(webhook: webhook.trimmingCharacters(in: .whitespacesAndNewlines),
-                           secret: secret.trimmingCharacters(in: .whitespacesAndNewlines))
-        saved = true
-        controller.refresh()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { saved = false }
-    }
-
-    private func clearFeishu() {
-        webhook = ""
-        secret = ""
-        AppConfigFile.save(webhook: "", secret: "")
+        var cfg = AppConfigFile.load()
+        cfg["feishuAppId"] = appId.trimmingCharacters(in: .whitespacesAndNewlines)
+        cfg["feishuAppSecret"] = appSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        cfg["feishuChatId"] = chatId.trimmingCharacters(in: .whitespacesAndNewlines)
+        cfg["feishuWebhook"] = webhook.trimmingCharacters(in: .whitespacesAndNewlines)
+        cfg["feishuSecret"] = webhookSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        AppConfigFile.save(cfg)
         saved = true
         controller.refresh()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { saved = false }

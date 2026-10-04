@@ -18,8 +18,13 @@ export const APP_CONFIG_FILE = join(STATE_DIR, "config.json");
 export const EVENTS_FILE = join(STATE_DIR, "events.jsonl");
 
 export interface AppConfig {
+  /** 自定义机器人 Webhook（备选） */
   feishuWebhook?: string;
   feishuSecret?: string;
+  /** 自建应用机器人（推荐） */
+  feishuAppId?: string;
+  feishuAppSecret?: string;
+  feishuChatId?: string;
 }
 
 export function loadAppConfig(): AppConfig {

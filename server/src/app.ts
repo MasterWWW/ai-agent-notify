@@ -6,7 +6,7 @@ import { Hub } from "./hub.js";
 import { log, error } from "./logger.js";
 import { logEvent, normalizeEvent, type IncomingEvent } from "./events.js";
 import { loadAppConfig, EVENTS_FILE } from "./config.js";
-import { sendFeishu } from "./feishu.js";
+import { sendFeishu, logFeishuError } from "./feishu.js";
 import { getLocalHostname, getLanIps, publishBonjourService, stopBonjour } from "./mdns.js";
 import type { AgentEvent } from "./types.js";
 import { appendFileSync, statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -88,8 +88,17 @@ export function startApp(opts: AppOptions): Promise<RunningApp> {
             logEvent(event, clients);
             appendEventFile(event);
             const appCfg = loadAppConfig();
-            if (appCfg.feishuWebhook) {
-              void sendFeishu({ webhook: appCfg.feishuWebhook, secret: appCfg.feishuSecret }, event);
+            if (appCfg.feishuAppId || appCfg.feishuWebhook) {
+              void sendFeishu(
+                {
+                  webhook: appCfg.feishuWebhook,
+                  webhookSecret: appCfg.feishuSecret,
+                  appId: appCfg.feishuAppId,
+                  appSecret: appCfg.feishuAppSecret,
+                  chatId: appCfg.feishuChatId,
+                },
+                event
+              ).catch(logFeishuError);
             }
             json(res, 200, { success: true, eventId: event.id });
           })
