@@ -96,6 +96,7 @@ export function startApp(opts: AppOptions): Promise<RunningApp> {
                   appId: appCfg.feishuAppId,
                   appSecret: appCfg.feishuAppSecret,
                   chatId: appCfg.feishuChatId,
+                  openId: appCfg.feishuOpenId,
                 },
                 event
               ).catch(logFeishuError);
