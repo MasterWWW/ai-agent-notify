@@ -5,8 +5,11 @@ import { bearerToken, isValidToken } from "./auth.js";
 import { Hub } from "./hub.js";
 import { log, error } from "./logger.js";
 import { logEvent, normalizeEvent, type IncomingEvent } from "./events.js";
+import { loadAppConfig, EVENTS_FILE } from "./config.js";
+import { sendFeishu } from "./feishu.js";
 import { getLocalHostname, getLanIps, publishBonjourService, stopBonjour } from "./mdns.js";
 import type { AgentEvent } from "./types.js";
+import { appendFileSync, statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 
 export interface AppOptions {
   host: string;
@@ -36,6 +39,20 @@ function json(res: ServerResponse, code: number, body: unknown): void {
   const payload = JSON.stringify(body);
   res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" });
   res.end(payload);
+}
+
+/** Append an event to ~/.ai-task-notify/events.jsonl (for the macOS app UI), capping size. */
+function appendEventFile(event: AgentEvent): void {
+  try {
+    const line = JSON.stringify(event) + "\n";
+    if (existsSync(EVENTS_FILE) && statSync(EVENTS_FILE).size > 1_000_000) {
+      const lines = readFileSync(EVENTS_FILE, "utf8").split("\n").filter(Boolean).slice(-100);
+      writeFileSync(EVENTS_FILE, lines.join("\n") + "\n");
+    }
+    appendFileSync(EVENTS_FILE, line);
+  } catch {
+    // non-critical
+  }
 }
 
 export function startApp(opts: AppOptions): Promise<RunningApp> {
@@ -69,6 +86,11 @@ export function startApp(opts: AppOptions): Promise<RunningApp> {
             const event: AgentEvent = normalizeEvent(parsed);
             const clients = hubHolder.hub?.broadcast(event) ?? 0;
             logEvent(event, clients);
+            appendEventFile(event);
+            const appCfg = loadAppConfig();
+            if (appCfg.feishuWebhook) {
+              void sendFeishu({ webhook: appCfg.feishuWebhook, secret: appCfg.feishuSecret }, event);
+            }
             json(res, 200, { success: true, eventId: event.id });
           })
           .catch((err) => {

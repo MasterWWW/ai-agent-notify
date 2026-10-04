@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { VERSION } from "./version.js";
-import { parseServerArgs, readTokenForHook } from "./config.js";
+import { loadAppConfig, parseServerArgs, readTokenForHook, saveAppConfig } from "./config.js";
 import { startApp } from "./app.js";
 import { error, log } from "./logger.js";
 import { getHealth, postEvent, resolveBaseUrl, type ClientOptions } from "./client.js";
@@ -23,6 +23,9 @@ Usage:
   ai-task-notify server [--host 0.0.0.0] [--port 3210] [--token xxx]
   ai-task-notify status [--base-url http://127.0.0.1:3210]
   ai-task-notify test [--message "..."] [--project "..."] [--token xxx] [--base-url ...]
+  ai-task-notify config --feishu-webhook <url> [--feishu-secret <secret>]
+  ai-task-notify config --show
+  ai-task-notify config --clear-feishu
   ai-task-notify hook <kind> [--token xxx] [--base-url ...]
 
 Hook kinds:
@@ -32,6 +35,41 @@ Env:
   AI_TASK_NOTIFY_TOKEN       token (used when --token is absent)
   AI_TASK_NOTIFY_BASE_URL    server base url for hooks/test/status
 `);
+}
+
+function mask(s: string | undefined): string {
+  if (!s) return "(未设置)";
+  return s.length > 12 ? s.slice(0, 4) + "…" + s.slice(-4) : "***";
+}
+
+async function cmdConfig(argv: string[]): Promise<number> {
+  const webhook = argValue(argv, "--feishu-webhook");
+  const secret = argValue(argv, "--feishu-secret");
+  if (argv.includes("--show")) {
+    const cfg = loadAppConfig();
+    console.log(`feishuWebhook=${cfg.feishuWebhook ?? "(未设置)"}`);
+    console.log(`feishuSecret=${mask(cfg.feishuSecret)}`);
+    return 0;
+  }
+  if (argv.includes("--clear-feishu")) {
+    const cfg = loadAppConfig();
+    delete cfg.feishuWebhook;
+    delete cfg.feishuSecret;
+    saveAppConfig(cfg);
+    console.log("feishu config cleared");
+    return 0;
+  }
+  if (webhook) {
+    const cfg = loadAppConfig();
+    cfg.feishuWebhook = webhook;
+    if (secret) cfg.feishuSecret = secret;
+    else if (argv.includes("--feishu-secret")) cfg.feishuSecret = "";
+    saveAppConfig(cfg);
+    console.log("feishu webhook saved");
+    return 0;
+  }
+  console.error("usage: ai-task-notify config --feishu-webhook <url> [--feishu-secret <secret>] | --show | --clear-feishu");
+  return 1;
 }
 
 async function cmdServer(argv: string[]): Promise<number> {
@@ -146,6 +184,8 @@ export async function main(argv: string[]): Promise<number> {
       return cmdStatus(rest);
     case "test":
       return cmdTest(rest);
+    case "config":
+      return cmdConfig(rest);
     case "hook":
       return cmdHook(rest);
     case "version":
@@ -164,7 +204,21 @@ export async function main(argv: string[]): Promise<number> {
 }
 
 // Allow direct execution: node dist/index.js server ...
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
+function isDirectRun(): boolean {
+  try {
+    if (typeof require !== "undefined" && require.main === module) return true;
+  } catch {
+    // CJS require is unavailable under ESM; fall through.
+  }
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url.endsWith(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   main(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
   });

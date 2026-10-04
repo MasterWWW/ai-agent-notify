@@ -14,6 +14,27 @@ export interface ServerConfig {
 
 export const STATE_DIR = join(homedir(), ".ai-task-notify");
 export const TOKEN_FILE = join(STATE_DIR, "token");
+export const APP_CONFIG_FILE = join(STATE_DIR, "config.json");
+export const EVENTS_FILE = join(STATE_DIR, "events.jsonl");
+
+export interface AppConfig {
+  feishuWebhook?: string;
+  feishuSecret?: string;
+}
+
+export function loadAppConfig(): AppConfig {
+  try {
+    if (!existsSync(APP_CONFIG_FILE)) return {};
+    return JSON.parse(readFileSync(APP_CONFIG_FILE, "utf8")) as AppConfig;
+  } catch {
+    return {};
+  }
+}
+
+export function saveAppConfig(cfg: AppConfig): void {
+  ensureStateDir();
+  writeFileSync(APP_CONFIG_FILE, JSON.stringify(cfg, null, 2), { mode: 0o600 });
+}
 
 function ensureStateDir(): void {
   mkdirSync(STATE_DIR, { recursive: true });
