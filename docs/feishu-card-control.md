@@ -41,6 +41,7 @@
   - 真实 Claude 无头任务触发验证：日志 `permission card sent requestId=... agent=claude tool=Bash`，Claude 进程被阻塞等待决定
   - ⏳ 待用户在自己终端跑 Claude 触发权限并**点击飞书卡片**完成最终 E2E
 - ⏳ **Phase C（Codex）**：Hook 代码已就绪；需用户确认把 `approval_policy` 改为 `on-request`（影响本机所有 Codex 会话，见 §八.6）
+- ✅ **验收脚本已入库**：`scripts/verify-permission.mjs`（`pnpm test:permission`），覆盖验收清单非交互项 S1-S8 / H1 / H3 / D1-D2，全部 PASS
 - ✅ **Phase D（安全加固）已实施**：
   - 安全命令自动放行：`git status/diff/log/show/branch/remote/tag`、`ls/pwd/whoami/date/uname/uptime/which`、`echo …` 不发卡片直接 allow（`AI_TASK_NOTIFY_AUTO_ALLOW=0` 关闭）；写操作/Edit/危险命令仍走卡片
   - 超时卡片状态化：请求 TTL 超时后，飞书卡片自动更新为「⏰ 已超时，请在终端处理」（灰色，无按钮）
