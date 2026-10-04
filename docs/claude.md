@@ -1,16 +1,22 @@
-# Claude Code 接入（Phase 5）
+# Claude Code 接入
 
 本机安装：`@anthropic-ai/claude-code@2.1.287`（npm 全局，nvmd Node 22.16.0）。
 
-> ⚠️ 当前 `claude` 命令报 `native binary not installed`：postinstall 未执行。接入前先修复：
-> ```bash
-> cd ~/.nvmd/versions/22.16.0/lib/node_modules/@anthropic-ai/claude-code
-> node install.cjs
-> ```
+## 修复二进制（已完成，2026-10-04）
+
+之前 `claude` 报 `native binary not installed`（postinstall 未执行）。已修复：
+
+```bash
+cd ~/.nvmd/versions/22.16.0/lib/node_modules/@anthropic-ai/claude-code
+npm install --registry=https://registry.npmmirror.com --no-save @anthropic-ai/claude-code-darwin-x64
+node install.cjs
+```
+
+验证：`claude --version` → `2.1.287 (Claude Code)`。
 
 ## 配置位置
 
-`~/.claude/settings.json`，新增：
+`~/.claude/settings.json`（本机已接入，2026-10-04，备份 `settings.json.bak.ai-task-notify.20261004`）：
 
 ```json
 {
@@ -28,17 +34,11 @@
 }
 ```
 
-## 操作步骤（必须备份）
+## 备份与回滚
 
 ```bash
-cp ~/.claude/settings.json ~/.claude/settings.json.bak.ai-task-notify
-# 编辑 ~/.claude/settings.json
-```
-
-## 回滚
-
-```bash
-mv ~/.claude/settings.json.bak.ai-task-notify ~/.claude/settings.json
+cp ~/.claude/settings.json ~/.claude/settings.json.bak.ai-task-notify.$(date +%Y%m%d)
+mv ~/.claude/settings.json.bak.ai-task-notify.20261004 ~/.claude/settings.json
 ```
 
 ## 事件映射
@@ -47,10 +47,13 @@ mv ~/.claude/settings.json.bak.ai-task-notify ~/.claude/settings.json
 |---|---|---|
 | Stop | task_completed | success |
 | PermissionRequest | permission_required | waiting |
-| Notification | notification | info（做去重过滤） |
+| Notification | notification | info |
 
-## 验证
+## 验证结果（本机实测）
 
-```bash
-echo '{"hook_event_name":"Stop","cwd":"/Users/weichaoying/code/ddc-order-biz"}' | bin/ai-task-notify hook claude-stop
+```text
+claude -p "只回复两个字：收到"
+Server 日志: event=evt_xxx agent=claude event=task_completed status=success project=ai-agent-notify clients=0
 ```
+
+> 注意：`Notification` Hook 会收到很多普通通知，可能需要按消息内容做过滤，避免刷屏。
