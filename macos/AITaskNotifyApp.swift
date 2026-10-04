@@ -196,104 +196,102 @@ final class ServerController: ObservableObject {
     }
 }
 
-// MARK: - Feishu settings window
+// MARK: - Menu bar popover content
 
-struct FeishuSettingsView: View {
+struct AppMenuView: View {
+    @ObservedObject var controller: ServerController
     @State private var webhook: String = ""
     @State private var secret: String = ""
     @State private var saved = false
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("飞书机器人通知").font(.headline)
-            Text("在飞书群里添加「自定义机器人」，把 Webhook 地址填到这里。可选的安全密钥用于签名校验。")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            Group {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(controller.isRunning ? Color.green : Color.gray)
+                        .frame(width: 8, height: 8)
+                    Text(controller.isRunning ? "运行中 · 端口 \(controller.port)" : "已停止")
+                        .font(.headline)
+                    Spacer()
+                    if controller.isRunning {
+                        Button("停止") { controller.stop() }
+                    } else {
+                        Button("启动") { controller.start() }
+                    }
+                }
+                Text("主机名：\(controller.hostname)").font(.caption).foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Button("复制连接地址") { controller.copyConnectURL() }
+                    Button("复制 Token") { controller.copyToken() }
+                }
+            }
 
-            TextField("Webhook 地址", text: $webhook)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 420)
+            Divider()
 
-            SecureField("安全密钥（可选）", text: $secret)
-                .textFieldStyle(.roundedBorder)
+            Group {
+                Text("飞书机器人通知").font(.headline)
+                TextField("Webhook 地址", text: $webhook)
+                    .textFieldStyle(.roundedBorder)
+                SecureField("安全密钥（可选）", text: $secret)
+                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
+                    if saved {
+                        Text("已保存 ✓").font(.caption).foregroundColor(.green)
+                    } else {
+                        Text(controller.feishuConfigured ? "已配置 ✅" : "未配置")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("清除") { clearFeishu() }
+                    Button("保存") { saveFeishu() }
+                }
+            }
+
+            Divider()
+
+            Group {
+                Text("最近事件").font(.headline)
+                if controller.recentEvents.isEmpty {
+                    Text("（暂无）").font(.caption).foregroundColor(.secondary)
+                }
+                ForEach(controller.recentEvents, id: \.self) { Text($0).font(.caption) }
+            }
+
+            Divider()
 
             HStack {
-                if saved {
-                    Text("已保存 ✓").font(.caption).foregroundColor(.green)
-                }
+                Button("打开数据目录") { controller.openStateDir() }
                 Spacer()
-                Button("清除") {
-                    webhook = ""
-                    secret = ""
-                    AppConfigFile.save(webhook: "", secret: "")
-                    saved = true
-                }
-                Button("保存") {
-                    AppConfigFile.save(webhook: webhook.trimmingCharacters(in: .whitespacesAndNewlines),
-                                       secret: secret.trimmingCharacters(in: .whitespacesAndNewlines))
-                    saved = true
-                }
-                .keyboardShortcut(.defaultAction)
+                Button("退出") { NSApp.terminate(nil) }
             }
         }
-        .padding(20)
+        .padding(14)
+        .frame(width: 360)
         .onAppear {
             let cfg = AppConfigFile.load()
             webhook = cfg["feishuWebhook"] ?? ""
             secret = cfg["feishuSecret"] ?? ""
+            controller.refresh()
         }
     }
-}
 
-// MARK: - Menu bar content
+    private func saveFeishu() {
+        AppConfigFile.save(webhook: webhook.trimmingCharacters(in: .whitespacesAndNewlines),
+                           secret: secret.trimmingCharacters(in: .whitespacesAndNewlines))
+        saved = true
+        controller.refresh()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { saved = false }
+    }
 
-struct AppMenuView: View {
-    @ObservedObject var controller: ServerController
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Group {
-            Text(controller.isRunning ? "● 运行中 · 端口 \(controller.port)" : "○ 已停止")
-                .font(.headline)
-            if controller.isRunning {
-                Text("主机名：\(controller.hostname)").font(.caption)
-            }
-            Button("复制连接地址") { controller.copyConnectURL() }
-            Button("复制 Token") { controller.copyToken() }
-        }
-
-        Divider()
-
-        Group {
-            Text("飞书：\(controller.feishuConfigured ? "已配置 ✅" : "未配置")").font(.caption)
-            Button("配置飞书…") { openWindow(id: "feishu") }
-        }
-
-        Divider()
-
-        Group {
-            Text("最近事件").font(.caption)
-            if controller.recentEvents.isEmpty {
-                Text("（暂无）").font(.caption).foregroundColor(.secondary)
-            }
-            ForEach(controller.recentEvents, id: \.self) { Text($0).font(.caption) }
-        }
-
-        Divider()
-
-        Group {
-            if controller.isRunning {
-                Button("停止服务") { controller.stop() }
-            } else {
-                Button("启动服务") { controller.start() }
-            }
-            Button("打开数据目录") { controller.openStateDir() }
-        }
-
-        Divider()
-
-        Button("退出") { NSApp.terminate(nil) }
+    private func clearFeishu() {
+        webhook = ""
+        secret = ""
+        AppConfigFile.save(webhook: "", secret: "")
+        saved = true
+        controller.refresh()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { saved = false }
     }
 }
 
@@ -316,11 +314,6 @@ struct AITaskNotifyApp: App {
         } label: {
             Image(systemName: controller.isRunning ? "bell.badge.fill" : "bell.badge")
         }
-        .menuBarExtraStyle(.menu)
-
-        Window("飞书设置", id: "feishu") {
-            FeishuSettingsView()
-        }
-        .windowResizability(.contentSize)
+        .menuBarExtraStyle(.window)
     }
 }
