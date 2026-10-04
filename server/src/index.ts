@@ -111,8 +111,8 @@ async function cmdHook(argv: string[]): Promise<number> {
     }
     const event = mapHookToEvent(kind, input);
     const { id: _id, ...body } = event;
-    const eventId = await postEvent(opts, body);
-    log({ msg: "hook forwarded", hook: kind, eventId });
+    // Keep hooks silent on success (the server already logs the event).
+    await postEvent(opts, body);
   } catch (err) {
     // Hook failures must NEVER break the agent (document §26).
     error("hook forwarding failed (ignored)", err);

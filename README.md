@@ -78,7 +78,6 @@ android/          (Phase 2) Kotlin + Compose 手机 App
 ## 阶段
 
 - Phase 1 ✅ Server（HTTP + WebSocket + Token + mDNS + CLI）
-- Phase 2 ⏳ Android App
-- Phase 3 手机 → WATCH 5 验证
-- Phase 4 Codex Hook 接入
-- Phase 5 Claude Code Hook 接入
+- Phase 4 ✅ Codex Hook 接入（Stop / PermissionRequest / SubagentStop，本机已配置，首次运行需在 `/hooks` 里信任）
+- Phase 5 ⏳ Claude Code Hook 接入（先修复 claude 二进制）
+- Phase 2/3 ⏸️ Android App 与手机/WATCH 5 验证 —— **用户暂缓**，需要时再做
