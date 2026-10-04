@@ -4,7 +4,6 @@ import { listChats, resolveOpenIdByMobile } from "../features/feishu/queries.js"
 import { argValue } from "./util.js";
 import { startFeishuBot } from "../features/feishu/connection.js";
 import { handleBotMessage } from "../features/feishu/bot.js";
-import { PermissionStore } from "../domain/permission.js";
 import { PermissionService } from "../features/permission.js";
 import { log } from "../core/logger.js";
 
@@ -72,8 +71,7 @@ export async function cmdFeishu(argv: string[]): Promise<number> {
     }
     console.log("正在连接飞书长连接（WebSocket），Ctrl+C 退出……");
     try {
-      const store = new PermissionStore();
-      const permissionService = new PermissionService(store);
+      const permissionService = new PermissionService();
       const bot = await startFeishuBot(cfg.feishuAppId, cfg.feishuAppSecret, {
         onMessage: (msg) =>
           handleBotMessage(msg, {

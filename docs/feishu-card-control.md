@@ -1,8 +1,8 @@
 # 计划书：Codex / Claude 交互通过飞书交互卡片远程回复
 
-版本：v0.3（Phase B 已配置）
+版本：v0.4（Phase D 已实施）
 日期：2026-10-05
-状态：Phase A 已验证上线；Phase B（Claude）配置已应用、链路已验证，待用户真实点击验收；Phase C（Codex）待确认
+状态：Phase A/B 已上线并验证链路；Phase D 安全加固已实施；待用户真实点击验收 + 确认 Phase C（Codex）
 
 ---
 
@@ -41,7 +41,10 @@
   - 真实 Claude 无头任务触发验证：日志 `permission card sent requestId=... agent=claude tool=Bash`，Claude 进程被阻塞等待决定
   - ⏳ 待用户在自己终端跑 Claude 触发权限并**点击飞书卡片**完成最终 E2E
 - ⏳ **Phase C（Codex）**：Hook 代码已就绪；需用户确认把 `approval_policy` 改为 `on-request`（影响本机所有 Codex 会话，见 §八.6）
-- ⏳ **Phase D**：安全命令白名单、卡片状态化打磨
+- ✅ **Phase D（安全加固）已实施**：
+  - 安全命令自动放行：`git status/diff/log/show/branch/remote/tag`、`ls/pwd/whoami/date/uname/uptime/which`、`echo …` 不发卡片直接 allow（`AI_TASK_NOTIFY_AUTO_ALLOW=0` 关闭）；写操作/Edit/危险命令仍走卡片
+  - 超时卡片状态化：请求 TTL 超时后，飞书卡片自动更新为「⏰ 已超时，请在终端处理」（灰色，无按钮）
+  - 验证：D1 安全命令 allow JSON、D2 rm/Edit 不自动放行且静默兜底、D3 TTL 超时回调 —— 全部 PASS
 
 ---
 

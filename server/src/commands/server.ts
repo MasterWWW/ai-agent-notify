@@ -8,7 +8,6 @@ import { NotifierHandler } from "../features/notifier.js";
 import { loadAppConfig } from "../features/config.js";
 import { startFeishuBot, type FeishuBot } from "../features/feishu/connection.js";
 import { handleBotMessage, type BotInfo } from "../features/feishu/bot.js";
-import { PermissionStore } from "../domain/permission.js";
 import { PermissionService } from "../features/permission.js";
 import { argValue } from "./util.js";
 
@@ -44,8 +43,7 @@ export function parseServerArgs(argv: string[]): ServerConfig {
 export async function cmdServer(argv: string[]): Promise<number> {
   const cfg = parseServerArgs(argv);
   // 权限请求交互（飞书卡片远程控制）：Server 内建内存存储 + HTTP API。
-  const permissionStore = new PermissionStore();
-  const permissionService = new PermissionService(permissionStore);
+  const permissionService = new PermissionService();
   const app = await startApp(
     { host: cfg.host, port: cfg.port, token: cfg.token },
     (hub) => [
@@ -99,7 +97,7 @@ export async function cmdServer(argv: string[]): Promise<number> {
     log({ msg: "shutting down" });
     // Exit promptly even if the http/ws close hangs.
     const tasks: Promise<unknown>[] = [app.close().catch(() => {})];
-    permissionStore.stop();
+    permissionService.stop();
     if (feishuBot) tasks.push(feishuBot.stop().catch(() => {}));
     Promise.allSettled(tasks).finally(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref();

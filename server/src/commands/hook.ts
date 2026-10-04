@@ -32,6 +32,22 @@ function extractPermissionInput(agent: "codex" | "claude", input: Record<string,
   return { agent, toolName, command: command ?? description, cwd };
 }
 
+/**
+ * 安全命令自动放行：只读、无副作用的命令不发卡片、直接 allow（减少打扰）。
+ * 用 AI_TASK_NOTIFY_AUTO_ALLOW=0 可关闭。这里刻意保守：写操作、cat/读敏感文件一律不自动放行。
+ */
+const SAFE_SIMPLE = new Set(["ls", "pwd", "whoami", "date", "uname", "uptime", "which", "type", "pwd -P"]);
+const GIT_SAFE = /^git\s+(status|diff|log|show|branch|remote|tag|stash\s+list|config\s+--get)(\s|$)/;
+
+export function isSafeCommand(cmd: string): boolean {
+  if (!cmd) return false;
+  const c = cmd.trim().replace(/\s+/g, " ").toLowerCase();
+  if (SAFE_SIMPLE.has(c)) return true;
+  if (c.startsWith("echo ")) return true;
+  if (GIT_SAFE.test(c)) return true;
+  return false;
+}
+
 /** 输出决定 JSON 到 stdout（Codex 与 Claude 格式一致）。 */
 function printDecision(behavior: "allow" | "deny"): void {
   const decision: Record<string, unknown> = { behavior };
@@ -50,6 +66,11 @@ async function cmdHookPermissionWait(kind: "codex-permission" | "claude-permissi
     const input = raw.trim() ? (JSON.parse(raw) as Record<string, unknown>) : {};
     const agent = kind === "codex-permission" ? "codex" : "claude";
     const body = extractPermissionInput(agent, input);
+    // 安全命令自动放行（不发卡片），默认开启，可用 AI_TASK_NOTIFY_AUTO_ALLOW=0 关闭。
+    if (process.env.AI_TASK_NOTIFY_AUTO_ALLOW !== "0" && body.toolName === "Bash" && body.command && isSafeCommand(body.command)) {
+      printDecision("allow");
+      return 0;
+    }
     const { requestId } = await postPermissionRequest(opts, body);
     // 留出余量：Hook 自身 timeout 配置建议 570s，这里最多等 540s。
     const result = await waitPermissionDecision(opts, requestId, 540_000);

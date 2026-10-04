@@ -18,10 +18,14 @@ import { loadAppConfig, type AppConfig } from "./config.js";
  * 不依赖长连接生命周期（发卡片用独立发送 Channel；收卡片事件由 connection 回调进来）。
  */
 export class PermissionService implements PermissionApi {
-  constructor(
-    private readonly store: PermissionStore,
-    private readonly getConfig: () => AppConfig = loadAppConfig
-  ) {}
+  readonly store: PermissionStore;
+
+  constructor(getConfig: () => AppConfig = loadAppConfig, store?: PermissionStore) {
+    this.getConfig = getConfig;
+    this.store = store ?? new PermissionStore({ onTimeout: (req) => this.handleTimeout(req) });
+  }
+
+  private readonly getConfig: () => AppConfig;
 
   async create(input: PermissionCreateInput): Promise<{ requestId: string }> {
     const project = input.cwd ? basename(input.cwd) : undefined;
@@ -84,10 +88,27 @@ export class PermissionService implements PermissionApi {
     log({ msg: "permission card sent", requestId: req.id, agent: req.agent, tool: req.toolName });
   }
 
-  private async updateCard(messageId: string, req: PermissionRequest, act: PermissionDecision): Promise<void> {
+  /** 请求超时（TTL 到）时把卡片更新为超时状态。 */
+  private handleTimeout(req: PermissionRequest): void {
+    if (!req.cardMessageId) return;
+    this.updateCard(req.cardMessageId, req, undefined, "timeout").catch((err) =>
+      error("permission timeout card update failed (ignored)", err)
+    );
+  }
+
+  private async updateCard(
+    messageId: string,
+    req: PermissionRequest,
+    act?: PermissionDecision,
+    state: "decided" | "timeout" = "decided"
+  ): Promise<void> {
     const cfg = this.getConfig();
     if (!cfg.feishuAppId || !cfg.feishuAppSecret) return;
     const channel = getSendChannel(cfg.feishuAppId, cfg.feishuAppSecret);
-    await channel.updateCard(messageId, buildPermissionCard(req, "decided", act));
+    await channel.updateCard(messageId, buildPermissionCard(req, state, act));
+  }
+
+  stop(): void {
+    this.store.stop();
   }
 }

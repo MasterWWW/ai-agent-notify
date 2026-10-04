@@ -16,7 +16,7 @@ function shortCommand(command: string): string {
  */
 export function buildPermissionCard(
   request: PermissionRequest,
-  state: "pending" | "decided",
+  state: "pending" | "decided" | "timeout",
   decision?: PermissionDecision
 ): object {
   const agent = AGENT_LABEL[request.agent] ?? request.agent;
@@ -24,9 +24,11 @@ export function buildPermissionCard(
   const header =
     state === "pending"
       ? { title: { tag: "plain_text", content: `⚠️ ${agent} 请求执行操作` }, template: "orange" }
-      : decision === "allow"
-        ? { title: { tag: "plain_text", content: `✅ ${agent} 操作已允许` }, template: "green" }
-        : { title: { tag: "plain_text", content: `⛔ ${agent} 操作已拒绝` }, template: "red" };
+      : state === "timeout"
+        ? { title: { tag: "plain_text", content: `⏰ ${agent} 请求已超时` }, template: "grey" }
+        : decision === "allow"
+          ? { title: { tag: "plain_text", content: `✅ ${agent} 操作已允许` }, template: "green" }
+          : { title: { tag: "plain_text", content: `⛔ ${agent} 操作已拒绝` }, template: "red" };
 
   const elements: object[] = [];
   const meta: string[] = [];
@@ -59,6 +61,11 @@ export function buildPermissionCard(
           value: { rid: request.id, act: "deny" },
         },
       ],
+    });
+  } else if (state === "timeout") {
+    elements.push({
+      tag: "div",
+      text: { tag: "lark_md", content: "⏰ 未在飞书收到决定，请在终端处理该请求。" },
     });
   } else {
     elements.push({

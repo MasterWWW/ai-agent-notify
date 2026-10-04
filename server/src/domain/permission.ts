@@ -38,14 +38,23 @@ export interface PermissionApi {
  * 内存版权限请求存储：pending 请求默认 10 分钟 TTL，超时自动标记 timeout。
  * 长轮询等待通过 waiters 唤醒，不占用线程轮询。
  */
+export interface PermissionStoreOptions {
+  ttlMs?: number;
+  sweepMs?: number;
+  /** 请求被 TTL 标记为 timeout 时的回调（用于把卡片更新为超时状态）。 */
+  onTimeout?: (req: PermissionRequest) => void;
+}
+
 export class PermissionStore {
   private readonly items = new Map<string, PermissionRequest>();
   private readonly waiters = new Map<string, Array<() => void>>();
   private readonly ttlMs: number;
+  private readonly onTimeout?: (req: PermissionRequest) => void;
   private readonly timer?: NodeJS.Timeout;
 
-  constructor(opts?: { ttlMs?: number; sweepMs?: number }) {
+  constructor(opts?: PermissionStoreOptions) {
     this.ttlMs = opts?.ttlMs ?? 10 * 60_000;
+    this.onTimeout = opts?.onTimeout;
     const sweepMs = opts?.sweepMs ?? 60_000;
     this.timer = setInterval(() => this.sweep(), sweepMs);
     this.timer.unref?.();
@@ -134,6 +143,7 @@ export class PermissionStore {
         req.status = "timeout";
         req.decidedAt = now;
         this.wake(req.id);
+        this.onTimeout?.(req);
       }
     }
   }
