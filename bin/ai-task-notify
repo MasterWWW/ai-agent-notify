@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+// Root CLI entry: delegates to the built server CLI.
+// If dist is missing, print a helpful message instead of failing silently.
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const entry = join(root, "server", "dist", "index.js");
+
+if (!existsSync(entry)) {
+  console.error("ai-task-notify: not built yet. Run `pnpm build` first.");
+  process.exit(1);
+}
+
+const { main } = await import(entry);
+process.exitCode = await main(process.argv.slice(2));

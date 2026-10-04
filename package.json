@@ -1,0 +1,23 @@
+{
+  "name": "ai-task-notify",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Agent task notifications pushed to vivo WATCH 5 via LAN WebSocket",
+  "type": "module",
+  "bin": {
+    "ai-task-notify": "./bin/ai-task-notify"
+  },
+  "scripts": {
+    "build": "pnpm --filter @ai-task-notify/server build",
+    "dev": "pnpm --filter @ai-task-notify/server dev",
+    "start": "pnpm --filter @ai-task-notify/server start"
+  },
+  "workspaces": [
+    "server"
+  ],
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
