@@ -25,6 +25,10 @@ export interface AppConfig {
   feishuAppId?: string;
   feishuAppSecret?: string;
   feishuChatId?: string;
+  /** 用户 open_id（发到与机器人的单聊） */
+  feishuOpenId?: string;
+  /** 手机号（仅用于 App 里查询 open_id，方便回填） */
+  feishuMobile?: string;
 }
 
 export function loadAppConfig(): AppConfig {

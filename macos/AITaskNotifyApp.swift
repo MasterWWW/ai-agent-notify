@@ -238,6 +238,7 @@ struct AppMenuView: View {
     @State private var chatId = ""
     @State private var webhook = ""
     @State private var webhookSecret = ""
+    @State private var mobile = ""
     @State private var saved = false
 
     var body: some View {
@@ -277,7 +278,15 @@ struct AppMenuView: View {
                         .textFieldStyle(.roundedBorder)
                     SecureField("App Secret", text: $appSecret)
                         .textFieldStyle(.roundedBorder)
-                    TextField("群 Chat ID（oc_xxx）", text: $chatId)
+                    HStack(spacing: 6) {
+                        TextField("我的手机号（查单聊用）", text: $mobile)
+                            .textFieldStyle(.roundedBorder)
+                        Button("查我的单聊") {
+                            let m = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
+                            controller.runFeishuCli(m.isEmpty ? ["feishu", "chats"] : ["feishu", "me", "--mobile", m])
+                        }
+                    }
+                    TextField("群 Chat ID（oc_xxx，可选）", text: $chatId)
                         .textFieldStyle(.roundedBorder)
                 } else {
                     TextField("Webhook 地址", text: $webhook)
@@ -338,6 +347,7 @@ struct AppMenuView: View {
             appId = cfg["feishuAppId"] ?? ""
             appSecret = cfg["feishuAppSecret"] ?? ""
             chatId = cfg["feishuChatId"] ?? ""
+            mobile = cfg["feishuMobile"] ?? ""
             webhook = cfg["feishuWebhook"] ?? ""
             webhookSecret = cfg["feishuSecret"] ?? ""
             controller.refresh()
@@ -351,6 +361,7 @@ struct AppMenuView: View {
         cfg["feishuChatId"] = chatId.trimmingCharacters(in: .whitespacesAndNewlines)
         cfg["feishuWebhook"] = webhook.trimmingCharacters(in: .whitespacesAndNewlines)
         cfg["feishuSecret"] = webhookSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        cfg["feishuMobile"] = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
         AppConfigFile.save(cfg)
         saved = true
         controller.refresh()

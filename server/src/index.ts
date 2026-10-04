@@ -5,7 +5,7 @@ import { startApp } from "./app.js";
 import { error, log } from "./logger.js";
 import { getHealth, postEvent, resolveBaseUrl, type ClientOptions } from "./client.js";
 import { mapHookToEvent, type HookKind } from "./hooks.js";
-import { listChats, testFeishu } from "./feishu.js";
+import { listChats, resolveOpenIdByMobile, testFeishu } from "./feishu.js";
 import type { EventInput } from "./types.js";
 
 const HOOK_KINDS: HookKind[] = [
@@ -24,12 +24,13 @@ Usage:
   ai-task-notify server [--host 0.0.0.0] [--port 3210] [--token xxx]
   ai-task-notify status [--base-url http://127.0.0.1:3210]
   ai-task-notify test [--message "..."] [--project "..."] [--token xxx] [--base-url ...]
-  ai-task-notify config --feishu-app-id <id> --feishu-app-secret <secret> --feishu-chat-id <chatId>
+  ai-task-notify config --feishu-app-id <id> --feishu-app-secret <secret> [--feishu-chat-id <chatId>]
+  ai-task-notify feishu me --mobile <手机号>   # 查你的 open_id，直接发到与机器人的单聊
   ai-task-notify config --feishu-webhook <url> [--feishu-secret <secret>]
   ai-task-notify config --show
   ai-task-notify config --clear-feishu
   ai-task-notify feishu test          # 发送测试消息，验证飞书配置
-  ai-task-notify feishu chats         # 列出机器人所在的群（需要 im:chat:readonly 权限）
+  ai-task-notify feishu chats         # 列出机器人所在的群/会话（需要 im:chat:readonly 权限）
   ai-task-notify hook <kind> [--token xxx] [--base-url ...]
 
 Hook kinds:
@@ -58,13 +59,15 @@ async function cmdConfig(argv: string[]): Promise<number> {
     console.log(`feishuAppId=${cfg.feishuAppId ?? "(未设置)"}`);
     console.log(`feishuAppSecret=${mask(cfg.feishuAppSecret)}`);
     console.log(`feishuChatId=${cfg.feishuChatId ?? "(未设置)"}`);
+    console.log(`feishuOpenId=${cfg.feishuOpenId ?? "(未设置)"}`);
+    console.log(`feishuMobile=${cfg.feishuMobile ?? "(未设置)"}`);
     console.log(`feishuWebhook=${cfg.feishuWebhook ?? "(未设置)"}`);
     console.log(`feishuSecret=${mask(cfg.feishuSecret)}`);
     return 0;
   }
   if (argv.includes("--clear-feishu")) {
     const cfg = loadAppConfig();
-    const keys: (keyof AppConfig)[] = ["feishuWebhook", "feishuSecret", "feishuAppId", "feishuAppSecret", "feishuChatId"];
+    const keys: (keyof AppConfig)[] = ["feishuWebhook", "feishuSecret", "feishuAppId", "feishuAppSecret", "feishuChatId", "feishuOpenId", "feishuMobile"];
     for (const k of keys) delete cfg[k];
     saveAppConfig(cfg);
     console.log("feishu config cleared");
@@ -77,6 +80,16 @@ async function cmdConfig(argv: string[]): Promise<number> {
     if (chatId) cfg.feishuChatId = chatId;
     saveAppConfig(cfg);
     console.log("feishu app bot config saved");
+    return 0;
+  }
+  const openId = argValue(argv, "--feishu-open-id");
+  const mobile = argValue(argv, "--feishu-mobile");
+  if (openId || mobile) {
+    const cfg = loadAppConfig();
+    if (openId) cfg.feishuOpenId = openId;
+    if (mobile) cfg.feishuMobile = mobile;
+    saveAppConfig(cfg);
+    console.log("feishu open_id saved");
     return 0;
   }
   if (webhook) {
@@ -95,6 +108,29 @@ async function cmdConfig(argv: string[]): Promise<number> {
 async function cmdFeishu(argv: string[]): Promise<number> {
   const sub = argv[0];
   const cfg = loadAppConfig();
+  if (sub === "me") {
+    const mobile = argValue(argv, "--mobile");
+    if (!mobile) {
+      console.error("usage: ai-task-notify feishu me --mobile <手机号>");
+      return 1;
+    }
+    if (!cfg.feishuAppId || !cfg.feishuAppSecret) {
+      console.error("需要先配置 --feishu-app-id 和 --feishu-app-secret");
+      return 1;
+    }
+    try {
+      const openId = await resolveOpenIdByMobile(cfg.feishuAppId, cfg.feishuAppSecret, mobile);
+      cfg.feishuOpenId = openId;
+      cfg.feishuMobile = mobile;
+      saveAppConfig(cfg);
+      console.log(`✅ 已找到你的 open_id=${openId}`);
+      console.log("已保存：之后消息会直接发到你和机器人的单聊窗口。");
+      return 0;
+    } catch (err) {
+      console.error(`查询失败：${err instanceof Error ? err.message : String(err)}`);
+      return 1;
+    }
+  }
   if (sub === "test") {
     console.log(await testFeishu({
       webhook: cfg.feishuWebhook,
@@ -102,6 +138,7 @@ async function cmdFeishu(argv: string[]): Promise<number> {
       appId: cfg.feishuAppId,
       appSecret: cfg.feishuAppSecret,
       chatId: cfg.feishuChatId,
+      openId: cfg.feishuOpenId,
     }));
     return 0;
   }
@@ -123,7 +160,7 @@ async function cmdFeishu(argv: string[]): Promise<number> {
       return 1;
     }
   }
-  console.error("usage: ai-task-notify feishu test | feishu chats");
+  console.error("usage: ai-task-notify feishu test | feishu chats | feishu me --mobile <手机号>");
   return 1;
 }
 
