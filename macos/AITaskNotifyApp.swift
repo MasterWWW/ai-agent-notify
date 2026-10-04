@@ -238,7 +238,6 @@ struct AppMenuView: View {
     @State private var chatId = ""
     @State private var webhook = ""
     @State private var webhookSecret = ""
-    @State private var mobile = ""
     @State private var saved = false
 
     var body: some View {
@@ -278,16 +277,11 @@ struct AppMenuView: View {
                         .textFieldStyle(.roundedBorder)
                     SecureField("App Secret", text: $appSecret)
                         .textFieldStyle(.roundedBorder)
-                    HStack(spacing: 6) {
-                        TextField("我的手机号（查单聊用）", text: $mobile)
-                            .textFieldStyle(.roundedBorder)
-                        Button("查我的单聊") {
-                            let m = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
-                            controller.runFeishuCli(m.isEmpty ? ["feishu", "chats"] : ["feishu", "me", "--mobile", m])
-                        }
-                    }
-                    TextField("群 Chat ID（oc_xxx，可选）", text: $chatId)
+                    TextField("单聊/群 Chat ID（oc_xxx）", text: $chatId)
                         .textFieldStyle(.roundedBorder)
+                    Text("获取方式：飞书里和机器人单聊 → 右上角 ⋯ → 群设置 → 查看群 ID（单聊/群聊都支持）")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 } else {
                     TextField("Webhook 地址", text: $webhook)
                         .textFieldStyle(.roundedBorder)
@@ -347,7 +341,6 @@ struct AppMenuView: View {
             appId = cfg["feishuAppId"] ?? ""
             appSecret = cfg["feishuAppSecret"] ?? ""
             chatId = cfg["feishuChatId"] ?? ""
-            mobile = cfg["feishuMobile"] ?? ""
             webhook = cfg["feishuWebhook"] ?? ""
             webhookSecret = cfg["feishuSecret"] ?? ""
             controller.refresh()
@@ -361,7 +354,6 @@ struct AppMenuView: View {
         cfg["feishuChatId"] = chatId.trimmingCharacters(in: .whitespacesAndNewlines)
         cfg["feishuWebhook"] = webhook.trimmingCharacters(in: .whitespacesAndNewlines)
         cfg["feishuSecret"] = webhookSecret.trimmingCharacters(in: .whitespacesAndNewlines)
-        cfg["feishuMobile"] = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
         AppConfigFile.save(cfg)
         saved = true
         controller.refresh()

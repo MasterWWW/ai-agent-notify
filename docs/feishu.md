@@ -1,7 +1,7 @@
 # 飞书通知（自建应用机器人）
 
 推荐使用**飞书开放平台的企业自建应用**里的机器人（App ID + App Secret 方式）。
-可以**直接发到你和机器人的单聊窗口**（不用进群），也可以发到群。
+可以直接发到**你和机器人的单聊窗口**（不用进群），只需要复制单聊的「群 ID」。
 
 ## 一、创建自建应用机器人（一次性准备）
 
@@ -10,51 +10,37 @@
 3. **权限管理**，开通并**发布版本**：
    - `im:message`（获取与发送单聊、群组消息）
    - `im:message:send_as_bot`（以应用身份发消息）
-   - `contact:user.id:readonly`（按手机号查你的 open_id，用于发到单聊）
-   - `im:chat:readonly`（可选：列出机器人所在的群/会话）
 4. **凭证与基础信息**里记下 **App ID**（`cli_xxx`）和 **App Secret**。
-5. 在飞书里**搜索你的机器人，打开和它的单聊**，随便发一句话（比如"你好"）。
+5. （重要）**版本管理与发布** → 可用范围：把**你自己**加入可用范围（否则会报 230013 Bot has NO availability to this user）。
+6. 在飞书里**搜索你的机器人，打开和它的单聊**。
 
-## 二、配置（App 弹窗，推荐）
+## 二、拿单聊的 Chat ID（不用查手机号、不用进群）
+
+在飞书里打开**和机器人的单聊窗口** → 点右上角 **⋯**（更多）→ **群设置** → 找到**群 ID**（形如 `oc_xxx`）→ 复制。
+
+> 官方说明：「群 ID 获取方式支持单聊或群聊两种模式，群成员可通过群设置页面查看群 ID。」
+
+## 三、配置（App 弹窗，推荐）
 
 1. 菜单栏 🔔 → 接入方式选「自建应用机器人」。
-2. 填 **App ID**、**App Secret**。
-3. **单聊方式（推荐，不用建群）**：
-   - 填**我的手机号**（需在组织通讯录内）
-   - 点 **「查我的单聊」** → 成功后会自动保存 open_id，消息将发到你和机器人的单聊窗口
-4. 或 **群聊方式**：点「查群列表」选一个群，填 **群 Chat ID**。
-5. 点 **保存** → 点 **测试发送**，单聊/群里立即收到即成功。
+2. 填 **App ID**、**App Secret**、**单聊/群 Chat ID**（就是上面复制的 `oc_xxx`）。
+3. 点 **保存** → 点 **测试发送**，单聊窗口立即收到。
 
-## 三、CLI 等价命令
+## 四、CLI 等价命令
 
 ```bash
-# 填基础信息
-bin/ai-task-notify config --feishu-app-id cli_xxx --feishu-app-secret xxxx
-
-# 单聊方式：按手机号查 open_id 并保存
-bin/ai-task-notify feishu me --mobile 138xxxxxxxx
-
-# 群聊方式：列出机器人所在的群/会话
-bin/ai-task-notify feishu chats
-
-# 测试发送
+bin/ai-task-notify config --feishu-app-id cli_xxx --feishu-app-secret xxxx --feishu-chat-id oc_xxx
 bin/ai-task-notify feishu test
-
-# 查看/清除
 bin/ai-task-notify config --show
 bin/ai-task-notify config --clear-feishu
 ```
 
-## 四、权限缺失时的报错
+## 五、其他方式
 
-查询手机号 open_id 若提示 `Access denied ... [contact:user.id:readonly]`，
-按提示链接在开放平台申请该权限并**发布新版本**后再试。
-
-## 五、Webhook 机器人（备选）
-
-```bash
-bin/ai-task-notify config --feishu-webhook "https://open.feishu.cn/open-apis/bot/v2/hook/xxx" [--feishu-secret "密钥"]
-```
+- **群聊**：建一个群把机器人拉进去，群设置里复制群 ID，填到 Chat ID 即可。
+- **按手机号查 open_id 发单聊（高级，可选）**：需要 `contact:user.id:readonly` 权限，
+  `bin/ai-task-notify feishu me --mobile 138xxxxxxxx` 会自动保存 open_id。
+- **Webhook 机器人（备选）**：`bin/ai-task-notify config --feishu-webhook <url> [--feishu-secret <密钥>]`
 
 ## 六、消息格式
 
