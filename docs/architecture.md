@@ -16,10 +16,16 @@ Claude Code ─Hook─┘        │ HTTP POST /api/events（Bearer Token）
               │       └─ notifier handler   │  功能层：读配置→选渠道→发送
               └────────────┬────────────────┘
                            ▼
-                    features/feishu（自建应用机器人）
+              ┌────────────┴────────────────────────────┐
+              │ features/feishu（官方 Channel SDK）        │
+              │  ├─ 发送：channel.send（im/v1/messages）    │
+              │  └─ 接收：connection（WebSocket 长连接）     │
+              │       └─ bot（命令 / 自动绑定单聊）          │
+              └────────────┬────────────────────────────┘
                            ▼
                      飞书单聊（你的手机/手表）
 ```
+
 
 ## 分层职责
 
@@ -54,7 +60,7 @@ server/src/
 ├── domain/                 types（事件模型）、normalize（校验）、pipeline（编排）、log-handler
 ├── transport/              server（HTTP+WS）、ws（Hub）、hooks（Hook 解析）、client、mdns
 ├── features/               notifier（通知编排）、history（落盘）、config（配置读写）
-│   └── feishu/             api（token）、channels（自建应用/Webhook 发送）、render（文本）、queries（open_id/群列表）
+│   └── feishu/             channel（官方 Channel SDK 发送）、connection（长连接接收）、bot（命令/自动绑定）、channels（发送编排）、render（文本）、queries（open_id/群列表）、api（查询用 token）
 └── core/                   auth、logger、state（token/状态目录）、version
 
 macos/

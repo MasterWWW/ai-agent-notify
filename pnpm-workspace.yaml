@@ -2,7 +2,9 @@ packages:
   - server
 
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+  protobufjs: true
 
 onlyBuiltDependencies:
   - esbuild
+  - protobufjs

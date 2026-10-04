@@ -21,9 +21,15 @@ open /Applications/"AI Task Notify.app"
 - **配置飞书…** 里粘贴 App ID / App Secret（单聊 Chat ID 可选），点「测试发送」验证。
 - 数据都在 `~/.ai-task-notify/`（token、config.json、events.jsonl、server.log）。
 
-## 飞书通知（自建应用机器人）
+## 飞书通知（自建应用机器人 · 官方 Channel SDK）
 
 在 [飞书开放平台](https://open.feishu.cn) 创建**企业自建应用**并开启「机器人」能力，拿到 App ID / App Secret，在 App 弹窗里填入并「测试发送」。完整流程见 [docs/feishu.md](docs/feishu.md)。
+
+- **通知**：走 `@larksuiteoapi/node-sdk` 的 Channel SDK（`im/v1/messages`），token 自动缓存刷新、内置重试。
+- **接管聊天（长连接）**：Server 启动时用 App ID / Secret 建立飞书长连接（WebSocket），你直接私聊机器人即可：
+  - `ping` → `pong`
+  - `help` / `status` / `current` / `recent`
+  - 私聊机器人的第一条消息会自动绑定为通知目标（不用再查手机号 / 复制 Chat ID）。
 
 **发到哪，二选一（都不用查手机号）：**
 - ✅ **open_id（默认）**：之前已通过手机号查好并保存，直接发到你和机器人的单聊，无需任何额外操作。
@@ -46,6 +52,7 @@ bin/ai-task-notify server            # 直接跑 Server（不进 App 时）
 bin/ai-task-notify status            # 健康检查
 bin/ai-task-notify test              # 发一条测试事件（走完整链路）
 bin/ai-task-notify feishu test       # 飞书测试发送
+bin/ai-task-notify feishu connect    # 前台测试飞书长连接（私聊机器人发命令）
 bin/ai-task-notify config --show     # 查看配置（密钥打码）
 bin/ai-task-notify hook <kind>       # Codex / Claude Hook 转发（失败永不阻断 Agent）
 ```

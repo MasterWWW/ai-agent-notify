@@ -54,3 +54,38 @@ ddc-fe-admin
 - success → ✅，waiting → 🟡，info → 💬
 - 自建应用用 tenant_access_token 调 `im/v1/messages` 发送，token 自动缓存、过期自动刷新。
 - 配置保存在 `~/.ai-task-notify/config.json`（0600），不会写入 Git。
+
+## 七、接管机器人聊天（长连接 · 推荐）
+
+只要配置了 **App ID + App Secret**，Server 启动时会自动用官方 Channel SDK
+（`@larksuiteoapi/node-sdk` 的 `LarkChannel`）建立**长连接（WebSocket）**，
+直接接管你和机器人的单聊窗口，**不需要公网回调地址 / 域名 / HTTPS**。
+
+### 开放平台一次性准备
+
+1. **事件订阅** → 添加事件 **`im.message.receive_v1`**。
+2. 订阅方式选择 **「使用长连接接收事件」**（不是「请求地址」HTTP 回调）。
+3. 确认已发布版本，且「可用范围」包含你自己。
+4. （可选）群聊里 @机器人 回复需要权限 `im:message.group_at_msg`；单聊不需要。
+
+### 私聊机器人即可用的命令
+
+```
+ping        → pong
+help        → 命令列表
+status      → 服务 / 机器人连接 / 绑定状态
+current     → 当前等待确认或最近任务
+recent      → 最近 10 条事件
+```
+
+**自动绑定**：你给机器人发的第一条私聊消息会自动把发送者保存为通知目标
+（open_id + chat_id），之后 Codex / Claude 完成通知直接进这个单聊——
+不用再查手机号、不用复制 Chat ID。
+
+### 前台调试
+
+```bash
+bin/ai-task-notify feishu connect    # 前台跑长连接，Ctrl+C 退出
+```
+
+日志里出现 `feishu bot ready (长连接已建立…)` 即连接成功。

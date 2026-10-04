@@ -20,3 +20,22 @@ export class HistoryHandler implements EventHandler {
     }
   }
 }
+
+/** Read the last N events from the JSONL history (robust, never throws). */
+export function readRecentEvents(n: number): AgentEvent[] {
+  try {
+    if (!existsSync(EVENTS_FILE)) return [];
+    const lines = readFileSync(EVENTS_FILE, "utf8").split("\n").filter(Boolean);
+    const out: AgentEvent[] = [];
+    for (const line of lines.slice(-n)) {
+      try {
+        out.push(JSON.parse(line) as AgentEvent);
+      } catch {
+        // skip malformed line
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}

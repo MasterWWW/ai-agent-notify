@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { AgentEvent } from "../../domain/types.js";
 import { buildText } from "./render.js";
-import { getTenantToken, resetTokenCache, FEISHU_BASE } from "./api.js";
+import { sendAppText } from "./channel.js";
 
 export interface FeishuConfig {
   /** 自定义机器人 Webhook（备选方案） */
@@ -39,36 +39,10 @@ async function sendWebhook(cfg: FeishuConfig, text: string): Promise<void> {
 }
 
 async function sendAppMessage(cfg: FeishuConfig, text: string): Promise<void> {
-  const receiveIdType = cfg.openId ? "open_id" : "chat_id";
   const receiveId = cfg.openId ?? cfg.chatId ?? "";
-  const send = async (): Promise<void> => {
-    const token = await getTenantToken(cfg.appId!, cfg.appSecret!);
-    const res = await fetch(`${FEISHU_BASE}/im/v1/messages?receive_id_type=${receiveIdType}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        receive_id: receiveId,
-        msg_type: "text",
-        content: JSON.stringify({ text }),
-      }),
-    });
-    const data = (await res.json().catch(() => ({}))) as { code?: number; msg?: string };
-    if (data.code === 99991663 || data.code === 99991664 || res.status === 401) {
-      // token 过期/无效，清缓存重试一次
-      resetTokenCache();
-      throw new Error(`TOKEN_EXPIRED:${data.code}`);
-    }
-    if (data.code !== 0) throw new Error(`code=${data.code} msg=${data.msg ?? ""}`);
-  };
-  try {
-    await send();
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("TOKEN_EXPIRED")) {
-      await send();
-      return;
-    }
-    throw err;
-  }
+  if (!receiveId) throw new Error("缺少 open_id 或 Chat ID");
+  // 走官方 Channel SDK：自动识别 receive_id_type、缓存并刷新 token、内置重试
+  await sendAppText(cfg.appId!, cfg.appSecret!, receiveId, text);
 }
 
 /**

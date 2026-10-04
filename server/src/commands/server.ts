@@ -1,11 +1,13 @@
 import { startApp } from "../transport/server.js";
-import { log } from "../core/logger.js";
+import { log, error } from "../core/logger.js";
 import { resolveToken, type TokenSource } from "../core/state.js";
 import { DEFAULT_HOST, DEFAULT_PORT } from "../core/version.js";
 import { LogHandler } from "../domain/log-handler.js";
 import { HistoryHandler } from "../features/history.js";
 import { NotifierHandler } from "../features/notifier.js";
 import { loadAppConfig } from "../features/config.js";
+import { startFeishuBot, type FeishuBot } from "../features/feishu/connection.js";
+import { handleBotMessage, type BotInfo } from "../features/feishu/bot.js";
 import { argValue } from "./util.js";
 
 export interface ServerConfig {
@@ -54,10 +56,40 @@ export async function cmdServer(argv: string[]): Promise<number> {
   });
   log({ msg: "token source", source: cfg.tokenSource });
 
+  // 接管飞书自建应用机器人的聊天（长连接）：只依赖 App ID / Secret。
+  // 失败只记录日志，不影响 Server 与通知功能。
+  let feishuBot: FeishuBot | null = null;
+  const appCfg = loadAppConfig();
+  if (appCfg.feishuAppId && appCfg.feishuAppSecret) {
+    const botInfo: BotInfo = { connected: false };
+    startFeishuBot(appCfg.feishuAppId, appCfg.feishuAppSecret, {
+      onMessage: (msg) => handleBotMessage(msg, { botInfo: () => botInfo }),
+      onState: (state) => {
+        botInfo.connected = state === "connected";
+        log({ msg: "feishu bot state", state });
+      },
+      onReady: () => {
+        botInfo.connected = true;
+        log({ msg: "feishu bot ready (长连接已建立，私聊机器人即可发送命令)" });
+      },
+    })
+      .then((bot) => {
+        feishuBot = bot;
+      })
+      .catch((err) => {
+        botInfo.connected = false;
+        error("feishu bot connect failed (server keeps running)", err);
+      });
+  } else {
+    log({ msg: "feishu bot skipped (未配置 App ID/Secret)" });
+  }
+
   const shutdown = () => {
     log({ msg: "shutting down" });
     // Exit promptly even if the http/ws close hangs.
-    app.close().finally(() => process.exit(0));
+    const tasks: Promise<unknown>[] = [app.close().catch(() => {})];
+    if (feishuBot) tasks.push(feishuBot.stop().catch(() => {}));
+    Promise.allSettled(tasks).finally(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref();
   };
   process.on("SIGINT", shutdown);
