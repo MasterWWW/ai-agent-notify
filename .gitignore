@@ -24,3 +24,6 @@ desktop/src-tauri/gen/
 # regenerable mobile icons (run `pnpm tauri icon`)
 desktop/src-tauri/icons/android/
 desktop/src-tauri/icons/ios/
+
+# Feishu bot avatar: uploaded manually to Feishu open platform, not committed
+docs/assets/logo/feishu-avatar-512.png

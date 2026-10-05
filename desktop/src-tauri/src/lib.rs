@@ -79,13 +79,16 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "退出 AI Task Notify", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&toggle, &quit])?;
 
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| tauri::Error::AssetNotFound("icon".into()))?;
+    // Menu bar template icon: monochrome silhouette, auto-adapts to light/dark.
+    let icon = {
+        let bytes = include_bytes!("../icons/tray-icon@2x.png");
+        tauri::image::Image::from_bytes(bytes)
+            .map_err(|_| tauri::Error::AssetNotFound("tray-icon@2x.png".into()))?
+    };
 
     TrayIconBuilder::with_id("main")
         .icon(icon)
+        .icon_as_template(true)
         .tooltip("AI Task Notify")
         .menu(&menu)
         .show_menu_on_left_click(false)
