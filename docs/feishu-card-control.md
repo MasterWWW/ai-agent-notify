@@ -1,8 +1,8 @@
 # 计划书：Codex / Claude 交互通过飞书交互卡片远程回复
 
-版本：v0.4（Phase D 已实施）
+版本：v0.5（Phase C 已应用）
 日期：2026-10-05
-状态：Phase A/B 已上线并验证链路；Phase D 安全加固已实施；待用户真实点击验收 + 确认 Phase C（Codex）
+状态：Phase A/B/C/D 全部实施并验证接线；剩余：用户点击验收（Claude 验收用户暂缓）
 
 ---
 
@@ -40,7 +40,10 @@
   - `~/.claude/settings.json` 的 PermissionRequest hook 已切换为 `... hook claude-permission --wait` + `"timeout": 570`（备份：`settings.json.bak.ai-task-notify.20261005`）
   - 真实 Claude 无头任务触发验证：日志 `permission card sent requestId=... agent=claude tool=Bash`，Claude 进程被阻塞等待决定
   - ⏳ 待用户在自己终端跑 Claude 触发权限并**点击飞书卡片**完成最终 E2E
-- ⏳ **Phase C（Codex）**：Hook 代码已就绪；需用户确认把 `approval_policy` 改为 `on-request`（影响本机所有 Codex 会话，见 §八.6）
+- ✅ **Phase C（Codex）已应用并验证**（用户已确认风险 §8.6）：
+  - `~/.codex/config.toml`：`approval_policy = "on-request"`；PermissionRequest hook 已加 `--wait` 和 `timeout = 570`（备份：`config.toml.bak.ai-task-notify.20261005`）
+  - 接线验证：用真实 Codex PermissionRequest 载荷调用运行中 App → `permission card sent agent=codex`（飞书收到 Codex 卡片）
+  - 说明：on-request 下由模型决定何时询问；无头 `codex exec` 实测中模型未触发审批（自行处理了命令被拒），交互终端中模型询问时会走卡片（见 §八.1）
 - ✅ **验收脚本已入库**：`scripts/verify-permission.mjs`（`pnpm test:permission`），覆盖验收清单非交互项 S1-S8 / H1 / H3 / D1-D2，全部 PASS
 - ✅ **Phase D（安全加固）已实施**：
   - 安全命令自动放行：`git status/diff/log/show/branch/remote/tag`、`ls/pwd/whoami/date/uname/uptime/which`、`echo …` 不发卡片直接 allow（`AI_TASK_NOTIFY_AUTO_ALLOW=0` 关闭）；写操作/Edit/危险命令仍走卡片
