@@ -1,17 +1,31 @@
-#!/usr/bin/env node
-// Root CLI entry: delegates to the built server CLI.
-// If dist is missing, print a helpful message instead of failing silently.
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+#!/usr/bin/env bash
+# AI Task Notify CLI — Rust binary (no Node).
+#
+# Resolves the Rust CLI in this order:
+#   1. $AI_TASK_NOTIFY_BIN (explicit override)
+#   2. ~/.local/bin/ai-task-notify   (installed copy)
+#   3. <repo>/server-rs/target/release/ai-task-notify   (project release build)
+#
+# Hooks must stay silent on failure so they never break Codex/Claude:
+# a missing binary only prints to stderr and exits 1 (agents fall back to
+# their own terminal approval flow).
+set -euo pipefail
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const entry = join(root, "server", "dist", "index.js");
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if (!existsSync(entry)) {
-  console.error("ai-task-notify: not built yet. Run `pnpm build` first.");
-  process.exit(1);
-}
+BIN="${AI_TASK_NOTIFY_BIN:-}"
+if [[ -z "$BIN" ]]; then
+  if [[ -x "$HOME/.local/bin/ai-task-notify" ]]; then
+    BIN="$HOME/.local/bin/ai-task-notify"
+  elif [[ -x "$REPO_DIR/server-rs/target/release/ai-task-notify" ]]; then
+    BIN="$REPO_DIR/server-rs/target/release/ai-task-notify"
+  fi
+fi
 
-const { main } = await import(entry);
-process.exitCode = await main(process.argv.slice(2));
+if [[ -z "$BIN" || ! -x "$BIN" ]]; then
+  echo "ai-task-notify: Rust CLI not built. Run: pnpm build:rs" >&2
+  exit 1
+fi
+
+exec "$BIN" "$@"

@@ -13,7 +13,9 @@
     "start": "pnpm --filter @ai-task-notify/server start",
     "test:permission": "node scripts/verify-permission.mjs",
     "build:app": "pnpm --filter ai-task-notify-desktop tauri build",
-    "dmg": "bash desktop/scripts/make-dmg.sh"
+    "dmg": "bash desktop/scripts/make-dmg.sh",
+    "build:rs": "cargo build --release --manifest-path server-rs/Cargo.toml --bin ai-task-notify",
+    "install:rs": "cp server-rs/target/release/ai-task-notify ~/.local/bin/ai-task-notify && chmod +x ~/.local/bin/ai-task-notify"
   },
   "workspaces": [
     "server",

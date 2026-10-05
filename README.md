@@ -48,6 +48,10 @@ Server 启动时自动打印主机名与局域网 IP，并用 `dns-sd` 注册 Bo
 
 ## CLI（可选）
 
+> `bin/ai-task-notify` 现在是 **Rust CLI 的壳脚本**（`server-rs/`，不再依赖 Node）。
+> 首次使用先 `pnpm build:rs && pnpm install:rs`（构建并安装到 `~/.local/bin`）。
+> Codex / Claude 的 Hook 也走这个入口（路径没变，自动切换到 Rust 实现）。
+
 ```bash
 bin/ai-task-notify server            # 直接跑 Server（不进 App 时）
 bin/ai-task-notify status            # 健康检查
@@ -85,6 +89,7 @@ macos/
 
 ```bash
 pnpm install
+pnpm build:rs && pnpm install:rs   # 构建并安装 Rust CLI（Hook 依赖）
 pnpm build                       # tsc
 pnpm --filter @ai-task-notify/server build:bundle   # 单文件 bundle.cjs（App 用）
 bash macos/build.sh              # 构建 macOS App（输出 macos/build/AI Task Notify.app）

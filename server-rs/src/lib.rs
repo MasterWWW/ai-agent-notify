@@ -137,11 +137,16 @@ impl FeishuBotHandler for AppBotHandler {
         Box::pin(async move {
             let rid = action.value["rid"].as_str().unwrap_or("").to_string();
             let act = action.value["act"].as_str().unwrap_or("").to_string();
-            if !rid.is_empty() && !act.is_empty() {
-                permissions
-                    .handle_card_action(&action.message_id, &rid, &act, &action.operator_open_id)
-                    .await;
+            if rid.is_empty() || act.is_empty() {
+                logger::log(&[
+                    ("msg", Some("card action dropped (missing rid/act in value)")),
+                    ("value", Some(&action.value.to_string())),
+                ]);
+                return;
             }
+            permissions
+                .handle_card_action(&action.message_id, &rid, &act, &action.operator_open_id)
+                .await;
         })
     }
 

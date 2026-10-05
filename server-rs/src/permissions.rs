@@ -278,19 +278,35 @@ impl PermissionService {
 
     /// 处理飞书卡片按钮点击（长连接 card.action.trigger）。
     pub async fn handle_card_action(self: &Arc<Self>, message_id: &str, rid: &str, act: &str, operator_open_id: &str) {
+        crate::logger::log(&[
+            ("msg", Some("permission card action received")),
+            ("requestId", Some(rid)),
+            ("act", Some(act)),
+        ]);
         if act != "allow" && act != "deny" {
+            crate::logger::log(&[("msg", Some("permission card action dropped (unknown act)")), ("requestId", Some(rid))]);
             return;
         }
         let cfg = (self.get_config)();
         let bound = cfg.feishu_open_id.as_deref().unwrap_or("");
         if bound.is_empty() || operator_open_id != bound {
-            crate::logger::log(&[("msg", Some("permission card action ignored (not the bound user)"))]);
+            crate::logger::log(&[
+                ("msg", Some("permission card action ignored (not the bound user)")),
+                ("requestId", Some(rid)),
+                ("bound", Some(if bound.is_empty() { "none" } else { "set" })),
+            ]);
             return;
         }
         let Some(req) = self.store.get(rid) else {
+            crate::logger::log(&[("msg", Some("permission card action dropped (request not found / expired)")), ("requestId", Some(rid))]);
             return;
         };
         if req.status != crate::permissions::PermissionStatus::Pending {
+            crate::logger::log(&[
+                ("msg", Some("permission card action dropped (already handled)")),
+                ("requestId", Some(rid)),
+                ("status", Some(status_name(req.status))),
+            ]);
             return;
         }
         let decision = if act == "allow" {
@@ -299,6 +315,11 @@ impl PermissionService {
             PermissionDecision::Deny
         };
         self.store.resolve(&req.id, decision);
+        crate::logger::log(&[
+            ("msg", Some("permission card action resolved")),
+            ("requestId", Some(&req.id)),
+            ("decision", Some(if decision == PermissionDecision::Allow { "allow" } else { "deny" })),
+        ]);
         // 卡片更新失败不影响决定（决定已生效）
         let svc = Arc::clone(self);
         let req = req.clone();
