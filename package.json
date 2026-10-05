@@ -11,10 +11,13 @@
     "build": "pnpm --filter @ai-task-notify/server build",
     "dev": "pnpm --filter @ai-task-notify/server dev",
     "start": "pnpm --filter @ai-task-notify/server start",
-    "test:permission": "node scripts/verify-permission.mjs"
+    "test:permission": "node scripts/verify-permission.mjs",
+    "build:app": "pnpm --filter ai-task-notify-desktop tauri build",
+    "dmg": "bash desktop/scripts/make-dmg.sh"
   },
   "workspaces": [
-    "server"
+    "server",
+    "desktop"
   ],
   "pnpm": {
     "onlyBuiltDependencies": [

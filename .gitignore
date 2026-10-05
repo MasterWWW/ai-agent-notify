@@ -11,3 +11,16 @@ server-rs/target/
 
 # Rust server
 server-rs/target/
+
+# Tauri desktop shell
+node_modules/
+dist/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+
+# pnpm local store
+.pnpm-store/
+
+# regenerable mobile icons (run `pnpm tauri icon`)
+desktop/src-tauri/icons/android/
+desktop/src-tauri/icons/ios/

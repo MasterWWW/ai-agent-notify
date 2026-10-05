@@ -106,3 +106,24 @@ bash macos/build.sh              # 构建 macOS App（输出 macos/build/AI Task
 - ✅ Phase 5 Claude Code Hook 接入（Stop / Notification / PermissionRequest）
 - ✅ macOS 菜单栏 App + 飞书机器人通知
 - ⏸️ Android App 与手机/WATCH 5 —— 用户暂缓（飞书通知已覆盖）
+
+## 打包成 App（Tauri 桌面版 · Rust 后端）
+
+`desktop/` 是 Tauri v2 + React 的菜单栏 App，**内嵌 Rust 服务器**（`server-rs/`，彻底不依赖 Node）。构建产物是自包含的 `.app` / `.dmg`：
+
+```bash
+# 1. 安装依赖（根目录一次装完，含 desktop）
+pnpm install
+
+# 2. 构建 .app
+cd desktop && pnpm tauri build
+# → desktop/src-tauri/target/release/bundle/macos/AI Task Notify.app
+
+# 3. 生成 DMG 安装包（单独脚本；tauri 内置的 create-dmg 流程在部分机器上不稳定）
+cd .. && pnpm dmg
+# → desktop/src-tauri/target/release/bundle/dmg/AI Task Notify_0.1.0_x64.dmg
+```
+
+- App 启动即内嵌启动 Rust Server（端口 3210：HTTP/WS + token 认证 + mDNS/Bonjour + 飞书长连接），点击菜单栏图标弹出控制面板（运行状态 / 飞书自建应用或 Webhook 配置 / 查群列表 / 测试发送 / 最近事件）。
+- 图标为占位图：`desktop/scripts/gen-icon.py` 纯代码生成 `desktop/icon-src.png`，替换后重跑 `pnpm tauri icon` 可更新全套图标。
+- 正式分发（签名 / 公证 / 上架）请按 macOS 开发者流程执行，见 [docs/](docs/)。
