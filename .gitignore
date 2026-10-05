@@ -5,3 +5,9 @@ dist/
 *.tsbuildinfo
 .env
 macos/build/
+
+# Rust server
+server-rs/target/
+
+# Rust server
+server-rs/target/
