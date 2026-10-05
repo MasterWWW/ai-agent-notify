@@ -1,9 +1,9 @@
 [package]
 name = "ai-task-notify-server"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "AI Task Notify server (Rust rewrite, no Node dependency)"
-license = "MIT"
+license.workspace = true
 
 [lib]
 name = "ai_task_notify_server"
@@ -33,6 +33,3 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 if-addrs = "0.13"
 url = "2"
 
-[profile.release]
-strip = true
-lto = true

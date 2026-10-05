@@ -1,8 +1,8 @@
 [package]
 name = "ai-task-notify-desktop"
-version = "0.1.0"
+version.workspace = true
 description = "AI Task Notify menu bar app (Tauri + React, Rust server embedded)"
-edition = "2021"
+edition.workspace = true
 
 [lib]
 name = "ai_task_notify_desktop_lib"
@@ -20,6 +20,3 @@ ai-task-notify-server = { path = "../../server-rs" }
 arboard = "3"
 open = "5"
 
-[profile.release]
-strip = true
-lto = true

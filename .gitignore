@@ -6,16 +6,12 @@ dist/
 .env
 macos/build/
 
-# Rust server
-server-rs/target/
-
-# Rust server
-server-rs/target/
+# Rust（Cargo workspace：统一 target 在仓库根目录；member 下的为历史遗留）
+target/
 
 # Tauri desktop shell
 node_modules/
 dist/
-desktop/src-tauri/target/
 desktop/src-tauri/gen/
 
 # pnpm local store

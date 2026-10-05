@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "server-rs",
+    "desktop/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/MasterWWW/ai-agent-notify"
+authors = ["AI Task Notify Contributors"]
+
+[profile.release]
+strip = true
+lto = true

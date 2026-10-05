@@ -116,18 +116,22 @@ bash macos/build.sh              # 构建 macOS App（输出 macos/build/AI Task
 
 `desktop/` 是 Tauri v2 + React 的菜单栏 App，**内嵌 Rust 服务器**（`server-rs/`，彻底不依赖 Node）。构建产物是自包含的 `.app` / `.dmg`：
 
+仓库根目录是 **Cargo workspace**（`server-rs/` + `desktop/src-tauri/`），Rust 产物统一输出到根目录 `target/`：
+
 ```bash
 # 1. 安装依赖（根目录一次装完，含 desktop）
 pnpm install
 
 # 2. 构建 .app
-cd desktop && pnpm tauri build
-# → desktop/src-tauri/target/release/bundle/macos/AI Task Notify.app
+pnpm build:app
+# → target/release/bundle/macos/AI Task Notify.app
 
 # 3. 生成 DMG 安装包（单独脚本；tauri 内置的 create-dmg 流程在部分机器上不稳定）
-cd .. && pnpm dmg
-# → desktop/src-tauri/target/release/bundle/dmg/AI Task Notify_0.1.0_x64.dmg
+pnpm dmg
+# → target/release/bundle/dmg/AI Task Notify_<version>_aarch64.dmg
 ```
+
+**CI 自动打包**：向仓库推送 `v*` 标签即可在 GitHub Actions 构建 macOS `.dmg` 与 Windows `.msi`/`.exe` 并发布到 Releases，详见 [docs/release.md](docs/release.md)。
 
 - App 启动即内嵌启动 Rust Server（端口 3210：HTTP/WS + token 认证 + mDNS/Bonjour + 飞书长连接），点击菜单栏图标弹出控制面板（运行状态 / 飞书自建应用或 Webhook 配置 / 查群列表 / 测试发送 / 最近事件）。
 - 图标为占位图：`desktop/scripts/gen-icon.py` 纯代码生成 `desktop/icon-src.png`，替换后重跑 `pnpm tauri icon` 可更新全套图标。
